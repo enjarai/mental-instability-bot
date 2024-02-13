@@ -20,17 +20,13 @@ pub async fn help(
 }
 
 #[poise::command(prefix_command, track_edits, slash_command)]
-pub async fn register(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
+pub async fn register(ctx: Context<'_>) -> Result<(), Error> {
     poise::builtins::register_application_commands_buttons(ctx).await?;
     Ok(())
 }
 
 #[poise::command(prefix_command, track_edits, slash_command)]
-pub async fn ping(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
+pub async fn ping(ctx: Context<'_>) -> Result<(), Error> {
     ctx.reply("Pong!").await?;
     Ok(())
 }
