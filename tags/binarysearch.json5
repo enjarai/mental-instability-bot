@@ -1,0 +1,6 @@
+{
+    "title": "Binary search",
+    "description": "A binary search is a quick way to find a specific element in an array, but in Minecraft modding, it's usually used to very easily identify mod conflicts.\n\nStart by emptying your mods folder, leaving only the mod that you know is partially responsible. (Maybe also test with only that mod first, to confirm its actually an incompatibility)\n\nThen, begin by adding back half the mods you removed and restarting your game to see if the issue appears. If it does, remove half the mods you just added and try again. If it doesn't, add half of the remaining mods you've yet to add back.\n\nBy repeating this on an increasingly smaller set of mods, you'll eventually find the other mod that is causing the issue.\n\nYou may have to add back some mods from the removed half as dependencies of other mods, but this shouldn't be a problem as library mods usually don't cause many conflicts.",
+    "color": 0x000000,
+    "thumbnail": "https://i.imgur.com/O0go1Ck.png"
+}

@@ -1,3 +1,5 @@
+use crate::get_config;
+
 use super::{Context, Error};
 use serenity::all::{Attachment, Message};
 use serenity::{
@@ -6,7 +8,10 @@ use serenity::{
 };
 
 fn is_image(filename: &str) -> bool {
-    filename.ends_with(".png") || filename.ends_with(".jpg") || filename.ends_with(".jpeg") || filename.ends_with(".gif")
+    filename.ends_with(".png")
+        || filename.ends_with(".jpg")
+        || filename.ends_with(".jpeg")
+        || filename.ends_with(".gif")
 }
 
 async fn quote_internal(
@@ -14,9 +19,9 @@ async fn quote_internal(
     author: &String,
     quote: &String,
     icon_url: Option<&String>,
-    attachments: Option<&Vec<Attachment>>
+    attachments: Option<&Vec<Attachment>>,
 ) -> Result<(), Error> {
-    match ctx.data().config.quotes_channel {
+    match get_config!(ctx.serenity_context()).quotes_channel {
         Some(id) => {
             let mut embed_author = CreateEmbedAuthor::new(author);
 
@@ -26,7 +31,10 @@ async fn quote_internal(
 
             let mut embed = CreateEmbed::new().description(quote).author(embed_author);
 
-            if let Some(attachments) = attachments && attachments.len() > 0 && is_image(&attachments[0].filename) {
+            if let Some(attachments) = attachments
+                && attachments.len() > 0
+                && is_image(&attachments[0].filename)
+            {
                 embed = embed.image(&attachments[0].url);
             }
 
@@ -68,7 +76,7 @@ pub async fn context_quote(ctx: Context<'_>, msg: Message) -> Result<(), Error> 
                 .avatar_url()
                 .unwrap_or(msg.author.default_avatar_url()),
         ),
-        Some(&msg.attachments)
+        Some(&msg.attachments),
     )
     .await
 }

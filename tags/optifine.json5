@@ -1,0 +1,6 @@
+{
+    "title": "Optifine compatibility",
+    "description": "Optifine compat is not actively maintained due to the significant complexity of solving compatibility issues it causes.\n\nYou can check out alternatives for all features provided by Optifine [here](https://lambdaurora.dev/optifine_alternatives/).",
+    "color": 0x7d2829,
+    "thumbnail": "https://media.discordapp.net/attachments/944163261123792926/1069058751639851078/image.png"
+}
