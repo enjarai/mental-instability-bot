@@ -1,15 +1,20 @@
 use super::{Context, Error};
-use serenity::all::Message;
+use serenity::all::{Attachment, Message};
 use serenity::{
     all::ChannelId,
     builder::{CreateEmbed, CreateEmbedAuthor, CreateMessage},
 };
 
+fn is_image(filename: &str) -> bool {
+    filename.ends_with(".png") || filename.ends_with(".jpg") || filename.ends_with(".jpeg") || filename.ends_with(".gif")
+}
+
 async fn quote_internal(
     ctx: Context<'_>,
     author: &String,
     quote: &String,
-    icon_url: Option<String>,
+    icon_url: Option<&String>,
+    attachments: Option<&Vec<Attachment>>
 ) -> Result<(), Error> {
     match ctx.data().config.quotes_channel {
         Some(id) => {
@@ -19,8 +24,14 @@ async fn quote_internal(
                 embed_author = embed_author.icon_url(icon);
             }
 
-            let embed = CreateEmbed::new().description(quote).author(embed_author);
+            let mut embed = CreateEmbed::new().description(quote).author(embed_author);
+
+            if let Some(attachments) = attachments && attachments.len() > 0 && is_image(&attachments[0].filename) {
+                embed = embed.image(&attachments[0].url);
+            }
+
             let builder = CreateMessage::new().embed(embed);
+
             match ChannelId::new(id).send_message(ctx.http(), builder).await {
                 Ok(_) => {
                     ctx.reply(format!("Quoted: '{quote}'")).await?;
@@ -43,7 +54,7 @@ pub async fn quote(
     #[description = "The text to quote"] quote: String,
     #[description = "The author of said text"] author: String,
 ) -> Result<(), Error> {
-    quote_internal(ctx, &author, &quote, Option::None).await
+    quote_internal(ctx, &author, &quote, None, None).await
 }
 
 #[poise::command(track_edits, context_menu_command = "Quote this message")]
@@ -52,11 +63,12 @@ pub async fn context_quote(ctx: Context<'_>, msg: Message) -> Result<(), Error> 
         ctx,
         &msg.author.name,
         &msg.content,
-        Option::Some(
-            msg.author
+        Some(
+            &msg.author
                 .avatar_url()
                 .unwrap_or(msg.author.default_avatar_url()),
         ),
+        Some(&msg.attachments)
     )
     .await
 }
