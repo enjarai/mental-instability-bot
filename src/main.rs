@@ -37,13 +37,21 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 async fn main() {
+    let mut commands = vec![
+        commands::general::register(),
+        commands::quote::quote(),
+        commands::quote::context_quote(),
+        commands::version::version(),
+    ];
+    commands.append(&mut commands::tags::load_tag_commands());
+
     let poise_options = FrameworkOptions {
-        commands: vec![
-            commands::general::register(),
-            commands::quote::quote(),
-            commands::quote::context_quote(),
-            commands::version::version(),
-        ],
+        commands,
+        on_error: |err| {
+            Box::pin(async move {
+                println!("{}", err);
+            })
+        },
         ..Default::default()
     };
 
