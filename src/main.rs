@@ -5,16 +5,20 @@ mod config;
 mod constants;
 mod log_upload;
 mod macros;
+// mod mapping;
+mod thread_adder;
 
 use std::fs;
 
 use config::Config;
 use log_upload::check_for_logs;
 use poise::FrameworkOptions;
+use serenity::all::GuildChannel;
 use serenity::all::Message;
 use serenity::all::Ready;
 use serenity::async_trait;
 use serenity::prelude::*;
+use thread_adder::add_owner_to_thread;
 
 pub struct Data;
 
@@ -32,6 +36,10 @@ impl EventHandler for Handler {
 
     async fn message(&self, ctx: Context, message: Message) {
         let _ = check_for_logs(&ctx, &message).await;
+    }
+
+    async fn thread_create(&self, ctx: Context, thread: GuildChannel) {
+        let _ = add_owner_to_thread(&ctx, &thread).await;
     }
 }
 

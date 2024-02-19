@@ -28,37 +28,37 @@ struct LogUpload {
 }
 
 pub(crate) async fn check_for_logs(ctx: &Context, message: &Message) -> Result<()> {
-    if let Some(file_extensions) = &get_config!(ctx).log_extensions {
-        let attachments: Vec<_> = message
-            .attachments
-            .iter()
-            .filter(|attachment| is_valid_log(attachment, &file_extensions))
-            .collect();
+    let config = get_config!(ctx);
+    let file_extensions = &config.log_extensions;
+    let attachments: Vec<_> = message
+        .attachments
+        .iter()
+        .filter(|attachment| is_valid_log(attachment, &file_extensions))
+        .collect();
 
-        if attachments.is_empty() {
-            return Ok(());
-        }
-
-        let mut reply = message.reply(ctx, "Logs detected, uploading...").await?;
-        let logs = upload_log_files(&attachments).await?;
-
-        let edit = if logs.is_empty() {
-            EditMessage::default().content("Failed to upload!")
-        } else {
-            EditMessage::default()
-                .content(format!("Uploaded {} logs", logs.len()))
-                .components(vec![CreateActionRow::Buttons(
-                    logs.iter()
-                        .filter(|(_, log)| log.url.is_some())
-                        .map(|(name, log)| {
-                            CreateButton::new_link(log.url.clone().unwrap()).label(name)
-                        })
-                        .collect(),
-                )])
-        };
-
-        reply.edit(ctx, edit).await?;
+    if attachments.is_empty() {
+        return Ok(());
     }
+
+    let mut reply = message.reply(ctx, "Logs detected, uploading...").await?;
+    let logs = upload_log_files(&attachments).await?;
+
+    let edit = if logs.is_empty() {
+        EditMessage::default().content("Failed to upload!")
+    } else {
+        EditMessage::default()
+            .content(format!("Uploaded {} logs", logs.len()))
+            .components(vec![CreateActionRow::Buttons(
+                logs.iter()
+                    .filter(|(_, log)| log.url.is_some())
+                    .map(|(name, log)| {
+                        CreateButton::new_link(log.url.clone().unwrap()).label(name)
+                    })
+                    .collect(),
+            )])
+    };
+
+    reply.edit(ctx, edit).await?;
 
     Ok(())
 }
