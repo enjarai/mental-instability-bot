@@ -31,7 +31,9 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, message: Message) {
-        let _ = check_for_logs(&ctx, &message).await;
+        if let Err(err) = check_for_logs(&ctx, &message, false).await {
+            println!("Log uploading threw error: {}", err);
+        }
     }
 }
 
@@ -42,6 +44,7 @@ async fn main() {
         commands::quote::quote(),
         commands::quote::context_quote(),
         commands::version::version(),
+        commands::check_logs::check_logs(),
     ];
     commands.append(&mut commands::tags::load_tag_commands());
 

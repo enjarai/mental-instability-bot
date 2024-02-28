@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{Cursor, ErrorKind, Read},
+    io::{Cursor, ErrorKind, Read}, ops::Deref,
 };
 
 use anyhow::Result;
@@ -27,16 +27,16 @@ struct LogUpload {
     content: String,
 }
 
-pub(crate) async fn check_for_logs(ctx: &Context, message: &Message) -> Result<()> {
+pub(crate) async fn check_for_logs(ctx: &Context, message: &Message, all: bool) -> Result<usize> {
     if let Some(file_extensions) = &get_config!(ctx).log_extensions {
         let attachments: Vec<_> = message
             .attachments
             .iter()
-            .filter(|attachment| is_valid_log(attachment, &file_extensions))
+            .filter(|attachment| all || is_valid_log(attachment, &file_extensions))
             .collect();
 
         if attachments.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
 
         let mut reply = message.reply(ctx, "Logs detected, uploading...").await?;
@@ -58,9 +58,11 @@ pub(crate) async fn check_for_logs(ctx: &Context, message: &Message) -> Result<(
         };
 
         reply.edit(ctx, edit).await?;
-    }
 
-    Ok(())
+        Ok(attachments.len())
+    } else {
+        Ok(0)
+    }
 }
 
 fn is_valid_log<T: AsRef<str>>(attachment: &Attachment, allowed_extensions: &[T]) -> bool {
@@ -74,7 +76,7 @@ async fn upload_log_files(attachments: &[&Attachment]) -> Result<HashMap<String,
     let mut responses = HashMap::new();
 
     for attachment in attachments {
-        let log = if attachment.filename.ends_with(".gz") {
+        let data = if attachment.filename.ends_with(".gz") {
             let mut reader = GzDecoder::new(Cursor::new(
                 attachment
                     .download()
@@ -82,12 +84,13 @@ async fn upload_log_files(attachments: &[&Attachment]) -> Result<HashMap<String,
                     .map_err(|e| std::io::Error::new(ErrorKind::Other, e))?,
             ));
 
-            let mut string = String::new();
-            reader.read_to_string(&mut string)?;
-            string
+            let mut buf = Vec::new();
+            reader.read_to_end(&mut buf)?;
+            buf
         } else {
-            String::from_utf8(attachment.download().await?)?
+            attachment.download().await?
         };
+        let log = String::from_utf8_lossy(&data).deref().to_string();
 
         responses.insert(attachment.filename.clone(), upload(log).await?);
     }

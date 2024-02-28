@@ -12,8 +12,9 @@ use super::Error;
 #[derive(Deserialize)]
 struct Tag {
     title: String,
-    description: String,
-    thumbnail: String,
+    description: Option<String>,
+    thumbnail: Option<String>,
+    image: Option<String>,
     color: u32,
 }
 
@@ -46,11 +47,18 @@ fn tag_command(tag_name: String, tag: Tag) -> poise::Command<Data, Error> {
             .downcast_ref::<Tag>()
             .expect("Tag command broke, what??");
 
-        let embed = CreateEmbed::new()
+        let mut embed = CreateEmbed::new()
             .title(&tag.title)
-            .description(&tag.description)
-            .thumbnail(&tag.thumbnail)
             .color(tag.color);
+        if let Some(description) = &tag.description {
+            embed = embed.description(description);
+        }
+        if let Some(thumbnail) = &tag.thumbnail {
+            embed = embed.thumbnail(thumbnail);
+        }
+        if let Some(image) = &tag.image {
+            embed = embed.image(image);
+        }
         let message = CreateReply::default().embed(embed);
 
         ctx.send(message).await?;
