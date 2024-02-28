@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{Cursor, ErrorKind, Read}, ops::Deref,
+    io::{Cursor, ErrorKind, Read},
 };
 
 use anyhow::Result;
@@ -23,8 +23,8 @@ struct LogData {
 }
 
 #[derive(Serialize)]
-struct LogUpload {
-    content: String,
+struct LogUpload<'a> {
+    content: &'a str,
 }
 
 pub(crate) async fn check_for_logs(ctx: &Context, message: &Message, all: bool) -> Result<usize> {
@@ -90,9 +90,9 @@ async fn upload_log_files(attachments: &[&Attachment]) -> Result<HashMap<String,
         } else {
             attachment.download().await?
         };
-        let log = String::from_utf8_lossy(&data).deref().to_string();
+        let log = String::from_utf8_lossy(&data);
 
-        responses.insert(attachment.filename.clone(), upload(log).await?);
+        responses.insert(attachment.filename.clone(), upload(&log).await?);
     }
 
     Ok(responses
@@ -102,7 +102,7 @@ async fn upload_log_files(attachments: &[&Attachment]) -> Result<HashMap<String,
         .collect())
 }
 
-async fn upload(log: String) -> Result<LogData> {
+async fn upload(log: &str) -> Result<LogData> {
     let client = reqwest::Client::new();
 
     Ok(client
