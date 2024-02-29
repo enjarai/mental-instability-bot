@@ -4,7 +4,7 @@ use poise::CreateReply;
 use serde::Deserialize;
 use serenity::builder::CreateEmbed;
 
-use crate::Data;
+use crate::ConfigData;
 
 use super::Context;
 use super::Error;
@@ -18,7 +18,7 @@ struct Tag {
     color: u32,
 }
 
-pub fn load_tag_commands() -> Vec<poise::Command<Data, Error>> {
+pub fn load_tag_commands() -> Vec<poise::Command<ConfigData, Error>> {
     let files = fs::read_dir("./tags/").expect("reading tags directory");
 
     let mut result = vec![];
@@ -40,7 +40,7 @@ pub fn load_tag_commands() -> Vec<poise::Command<Data, Error>> {
     result
 }
 
-fn tag_command(tag_name: String, tag: Tag) -> poise::Command<Data, Error> {
+fn tag_command(tag_name: String, tag: Tag) -> poise::Command<ConfigData, Error> {
     async fn inner(ctx: Context<'_>) -> Result<(), Error> {
         let data = ctx.command().custom_data.as_ref();
         let tag = data

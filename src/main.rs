@@ -5,10 +5,13 @@ mod config;
 mod constants;
 mod log_upload;
 mod macros;
+mod log_checking;
 
 use std::fs;
 
 use config::Config;
+use log_checking::load_checks;
+use log_checking::LogCheck;
 use log_upload::check_for_logs;
 use poise::FrameworkOptions;
 use serenity::all::Message;
@@ -16,10 +19,16 @@ use serenity::all::Ready;
 use serenity::async_trait;
 use serenity::prelude::*;
 
-pub struct Data;
+pub struct ConfigData;
 
-impl TypeMapKey for Data {
+impl TypeMapKey for ConfigData {
     type Value = Config;
+}
+
+pub struct LogChecksData;
+
+impl TypeMapKey for LogChecksData {
+    type Value = Vec<LogCheck>;
 }
 
 struct Handler;
@@ -67,7 +76,7 @@ async fn main() {
             Box::pin(async move {
                 println!("Registering commands");
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data {})
+                Ok(ConfigData {})
             })
         })
         .options(poise_options)
@@ -80,7 +89,11 @@ async fn main() {
         .framework(framework)
         .await
         .expect("Error creating client");
-    client.data.write().await.insert::<Data>(config);
+    {
+        let mut data_lock = client.data.write().await;
+        data_lock.insert::<ConfigData>(config);
+        data_lock.insert::<LogChecksData>(load_checks());
+    }
 
     // start listening for events by starting a single shard
     if let Err(why) = client.start().await {

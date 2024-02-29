@@ -1,6 +1,5 @@
 use std::{
-    collections::HashMap,
-    io::{Cursor, ErrorKind, Read},
+    collections::HashMap, io::{Cursor, ErrorKind, Read}
 };
 
 use anyhow::Result;
@@ -8,12 +7,12 @@ use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use serenity::{
     all::{Attachment, Message},
-    builder::{CreateActionRow, CreateButton, EditMessage},
+    builder::{CreateActionRow, CreateButton, CreateEmbed, EditMessage},
 };
 
 use serenity::client::Context;
 
-use crate::{constants::MCLOGS_BASE_URL, get_config};
+use crate::{constants::MCLOGS_BASE_URL, get_config, log_checking::{check_checks, CheckResult, Severity}};
 
 #[derive(Deserialize, Clone)]
 struct LogData {
@@ -40,15 +39,32 @@ pub(crate) async fn check_for_logs(ctx: &Context, message: &Message, all: bool) 
         }
 
         let mut reply = message.reply(ctx, "Logs detected, uploading...").await?;
-        let logs = upload_log_files(&attachments).await?;
+        let logs = upload_log_files(ctx, &attachments).await?;
 
         let edit = if logs.is_empty() {
             EditMessage::default().content("Failed to upload!")
         } else {
+            let total_severity = logs.iter()
+                .map(|(_, (_, check))| check.severity)
+                .max()
+                .unwrap_or(Severity::None);
+
+            let mut embed = CreateEmbed::new()
+                .title(format!("Uploaded {} logs", logs.len()))
+                .color(total_severity.get_color());
+
+            for (name, (_, check)) in &logs {
+                if !check.reports.is_empty() {
+                    embed = embed.field(name, check.reports.join("\n"), false);
+                }
+            }
+
             EditMessage::default()
-                .content(format!("Uploaded {} logs", logs.len()))
+                .content("")
+                .embed(embed)
                 .components(vec![CreateActionRow::Buttons(
                     logs.iter()
+                        .map(|(name, (log, _))| (name, log))
                         .filter(|(_, log)| log.url.is_some())
                         .map(|(name, log)| {
                             CreateButton::new_link(log.url.clone().unwrap()).label(name)
@@ -72,7 +88,7 @@ fn is_valid_log<T: AsRef<str>>(attachment: &Attachment, allowed_extensions: &[T]
             .any(|extension| attachment.filename.ends_with(extension.as_ref())))
 }
 
-async fn upload_log_files(attachments: &[&Attachment]) -> Result<HashMap<String, LogData>> {
+async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<HashMap<String, (LogData, CheckResult)>> {
     let mut responses = HashMap::new();
 
     for attachment in attachments {
@@ -92,14 +108,14 @@ async fn upload_log_files(attachments: &[&Attachment]) -> Result<HashMap<String,
         };
         let log = String::from_utf8_lossy(&data);
 
-        responses.insert(attachment.filename.clone(), upload(&log).await?);
+        let data = upload(&log).await?;
+
+        if data.success {
+            responses.insert(attachment.filename.clone(), (data, check_checks(ctx, &log).await?));
+        }
     }
 
-    Ok(responses
-        .iter()
-        .filter(|(_, response)| response.success)
-        .map(|(file, log)| (file.clone(), log.clone()))
-        .collect())
+    Ok(responses)
 }
 
 async fn upload(log: &str) -> Result<LogData> {

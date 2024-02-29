@@ -804,6 +804,7 @@ dependencies = [
  "flate2",
  "json5",
  "poise",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

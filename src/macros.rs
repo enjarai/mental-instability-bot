@@ -4,7 +4,7 @@ macro_rules! get_config {
         $arg.data
             .read()
             .await
-            .get::<crate::Data>()
+            .get::<crate::ConfigData>()
             .expect("No config?")
     }};
 }
