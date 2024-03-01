@@ -1,0 +1,4 @@
+regexes = ["- showmeyourskin (?<version>.*)", "showmeyourskin: Show Me Your Skin! (?<version>.*)"]
+severity = "None"
+title = "Show Me Your Skin!"
+response = "Version: {version}"

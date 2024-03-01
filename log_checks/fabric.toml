@@ -1,3 +1,0 @@
-regexes = ["Fabric Loader"]
-severity = "None"
-response = "Fabric Detected."

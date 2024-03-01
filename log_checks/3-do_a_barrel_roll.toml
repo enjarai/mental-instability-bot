@@ -1,0 +1,4 @@
+regexes = ["- do_a_barrel_roll (?<version>.*)", "do_a_barrel_roll: Do a Barrel Roll (?<version>.*)"]
+severity = "None"
+title = "Do a Barrel Roll"
+response = "Version: {version}"

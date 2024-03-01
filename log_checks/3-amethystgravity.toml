@@ -1,0 +1,4 @@
+regexes = ["- amethystgravity (?<version>.*)", "amethystgravity: Amethyst Gravity: Reattracted (?<version>.*)"]
+severity = "None"
+title = "Amethyst Gravity: Reattracted"
+response = "Version: {version}"

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp, fs};
 
-use serde::{Deserialize, Deserializer, de::Error};
-use regex::RegexSet;
+use serde::{Deserialize, Deserializer};
+use regex::{Captures, Regex};
 use serenity::client::Context;
 use anyhow::Result;
 
@@ -25,23 +25,35 @@ impl Severity {
 #[derive(Deserialize)]
 pub struct LogCheck {
     #[serde(deserialize_with = "deserialize_regex")]
-    regexes: RegexSet,
+    regexes: Vec<Regex>,
     severity: Severity,
+    title: String,
     response: String,
+}
+
+impl LogCheck {
+    pub fn create_report(&self, regex_used: &Regex, captures: &Captures) -> (String, String) {
+        let mut result = self.response.clone();
+        for group in regex_used.capture_names() {
+            if let Some(group) = group && let Some(capture) = captures.name(group) {
+                result = result.replace(&format!("{{{}}}", group), capture.as_str())
+            }
+        }
+        (self.title.clone(), result)
+    }
 }
 
 pub struct CheckResult {
     pub severity: Severity,
-    pub reports: Vec<String>,
+    pub reports: Vec<(String, String)>,
 }
 
-fn deserialize_regex<'de, D>(deserializer: D) -> Result<RegexSet, D::Error> where D: Deserializer<'de> {
+fn deserialize_regex<'de, D>(deserializer: D) -> Result<Vec<Regex>, D::Error> where D: Deserializer<'de> {
     let regexes = <Vec<Cow<str>>>::deserialize(deserializer)?;
 
-    match RegexSet::new(regexes) {
-        Ok(regexset) => Ok(regexset),
-        Err(err) => Err(D::Error::custom(err)),
-    }
+    Ok(regexes.iter()
+        .map(|r| Regex::new(r).expect("Incorrect regex in log check"))
+        .collect())
 }
 
 pub fn load_checks() -> Vec<LogCheck> {
@@ -75,9 +87,13 @@ pub async fn check_checks(ctx: &Context, log: &str) -> Result<CheckResult> {
     };
 
     for check in checks {
-        if check.regexes.is_match(log) {
-            result.severity = cmp::max(result.severity, check.severity);
-            result.reports.push(check.response.clone());
+        for regex in &check.regexes {
+            if let Some(captures) = regex.captures(log) {
+                result.severity = cmp::max(result.severity, check.severity);
+                result.reports.push(check.create_report(regex, &captures));
+
+                break;
+            }
         }
     }
 

@@ -1,0 +1,4 @@
+regexes = ["- blahaj-totem (?<version>.*)", "blahaj-totem: Blåhaj of Undying (?<version>.*)"]
+severity = "None"
+title = "Blåhaj of Undying"
+response = "Version: {version}"

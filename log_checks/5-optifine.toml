@@ -1,0 +1,5 @@
+regexes = ["OptiFine Version: ", "optifabric: OptiFabric", "- optifabric"]
+severity = "High"
+title = "Issue: Optifine detected"
+response = """Known to cause problems with other mods.
+Possible solution: Remove."""

@@ -1,0 +1,4 @@
+regexes = ["- omnihopper (?<version>.*)", "omnihopper: Omni-Hopper (?<version>.*)"]
+severity = "None"
+title = "Omni-Hopper"
+response = "Version: {version}"

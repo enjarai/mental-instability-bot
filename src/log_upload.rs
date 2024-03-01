@@ -12,7 +12,7 @@ use serenity::{
 
 use serenity::client::Context;
 
-use crate::{constants::MCLOGS_BASE_URL, get_config, log_checking::{check_checks, CheckResult, Severity}};
+use crate::{constants::MCLOGS_BASE_URL, get_config, log_checking::{check_checks, CheckResult}};
 
 #[derive(Deserialize, Clone)]
 struct LogData {
@@ -44,24 +44,22 @@ pub(crate) async fn check_for_logs(ctx: &Context, message: &Message, all: bool) 
         let edit = if logs.is_empty() {
             EditMessage::default().content("Failed to upload!")
         } else {
-            let total_severity = logs.iter()
-                .map(|(_, (_, check))| check.severity)
-                .max()
-                .unwrap_or(Severity::None);
-
-            let mut embed = CreateEmbed::new()
-                .title(format!("Uploaded {} logs", logs.len()))
-                .color(total_severity.get_color());
-
-            for (name, (_, check)) in &logs {
-                if !check.reports.is_empty() {
-                    embed = embed.field(name, check.reports.join("\n"), false);
-                }
-            }
-
             EditMessage::default()
                 .content("")
-                .embed(embed)
+                .embeds(logs.iter()
+                    .map(|(name, (_, check))| {
+                        let mut embed = CreateEmbed::new()
+                            .title(format!("Uploaded {}", name))
+                            .color(check.severity.get_color());
+        
+                        for (title, body) in &check.reports {
+                            embed = embed.field(title, body, true);
+                        }
+        
+                        embed
+                    })
+                    .collect()
+                )
                 .components(vec![CreateActionRow::Buttons(
                     logs.iter()
                         .map(|(name, (log, _))| (name, log))

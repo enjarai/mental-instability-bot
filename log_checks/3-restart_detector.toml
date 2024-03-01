@@ -1,0 +1,4 @@
+regexes = ["- restart_detector (?<version>.*)", "restart_detector: Restart Detector (?<version>.*)"]
+severity = "None"
+title = "Restart Detector"
+response = "Version: {version}"

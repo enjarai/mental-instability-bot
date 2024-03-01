@@ -1,0 +1,4 @@
+regexes = ["- skinshuffle (?<version>.*)", "skinshuffle: SkinShuffle (?<version>.*)"]
+severity = "None"
+title = "SkinShuffle"
+response = "Version: {version}"

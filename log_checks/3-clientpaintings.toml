@@ -1,0 +1,4 @@
+regexes = ["- clientpaintings (?<version>.*)", "clientpaintings: Client Paintings (?<version>.*)"]
+severity = "None"
+title = "Client Paintings"
+response = "Version: {version}"

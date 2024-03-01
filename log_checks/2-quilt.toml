@@ -1,0 +1,5 @@
+regexes = ["with Quilt Loader", "brand changed to 'quilt'"]
+severity = "Medium"
+title = "Warning: Quilt detected"
+response = """Quilt is not officially supported by any of my mods.
+If you encounter issues, consider using Fabric instead."""

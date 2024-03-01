@@ -1,0 +1,4 @@
+regexes = ["MinecraftForge v(?<version>.*) Initialized"]
+severity = "None"
+title = "Forge"
+response = "Loader: {version}"

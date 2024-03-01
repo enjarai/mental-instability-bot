@@ -1,0 +1,4 @@
+regexes = ["with Fabric Loader (?<version>.*)", "fabricloader: Fabric Loader (?<version>.*)"]
+severity = "None"
+title = "Fabric"
+response = "Loader: {version}"

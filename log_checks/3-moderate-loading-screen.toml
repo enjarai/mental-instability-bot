@@ -1,0 +1,4 @@
+regexes = ["- moderate-loading-screen (?<version>.*)", "moderate-loading-screen: Mod-erate Loading Screen (?<version>.*)"]
+severity = "None"
+title = "Mod-erate Loading Screen"
+response = "Version: {version}"

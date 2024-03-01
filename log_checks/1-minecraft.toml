@@ -1,0 +1,4 @@
+regexes = ["- minecraft (?<version>.*)", "Minecraft Version: (?<version>.*)", "Forge mod loading, version .*, for MC (?<version>.*) with MCP"]
+severity = "None"
+title = "Minecraft"
+response = "Version: {version}"

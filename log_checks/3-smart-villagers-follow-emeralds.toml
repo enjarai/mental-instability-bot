@@ -1,0 +1,4 @@
+regexes = ["- smart-villagers-follow-emeralds (?<version>.*)", "smart-villagers-follow-emeralds: Smart Villagers Follow Emeralds (?<version>.*)"]
+severity = "None"
+title = "Smart Villagers Follow Emeralds"
+response = "Version: {version}"

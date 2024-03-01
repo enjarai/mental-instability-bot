@@ -1,0 +1,4 @@
+regexes = ["- mini_tardis (?<version>.*)", "mini_tardis: Mini Tardis (?<version>.*)"]
+severity = "None"
+title = "Mini Tardis"
+response = "Version: {version}"

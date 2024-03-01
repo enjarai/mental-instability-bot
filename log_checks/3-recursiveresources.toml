@@ -1,0 +1,4 @@
+regexes = ["- recursiveresources (?<version>.*)", "recursiveresources: Recursive Resources (?<version>.*)"]
+severity = "None"
+title = "Recursive Resources"
+response = "Version: {version}"

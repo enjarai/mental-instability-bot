@@ -1,3 +1,0 @@
-regexes = ["OptiFine Version: ", "optifabric: OptiFabric", "- optifabric"]
-severity = "High"
-response = "Optifine detected! None of my mods support Optifine due to its closed source nature and invasiveness, see if the issue persists when you remove it."
