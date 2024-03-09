@@ -42,7 +42,7 @@ async fn quote_internal(
 
             match ChannelId::new(id).send_message(ctx.http(), builder).await {
                 Ok(_) => {
-                    ctx.reply(format!("Quoted: '{quote}'")).await?;
+                    ctx.reply(format!("Quoted: '{quote}' - {author}")).await?;
                 }
                 Err(e) => {
                     ctx.reply(format!("Failed to quote, {e}")).await?;
