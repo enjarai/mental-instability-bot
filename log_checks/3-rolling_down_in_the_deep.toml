@@ -1,0 +1,4 @@
+regexes = ["- rolling_down_in_the_deep (?<version>.*)", "rolling_down_in_the_deep: Rolling Down in the Deep (?<version>.*)"]
+severity = "None"
+title = "Rolling Down in the Deep"
+response = "Version: {version}"
