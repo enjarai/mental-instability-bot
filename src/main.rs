@@ -54,6 +54,7 @@ async fn main() {
         commands::quote::context_quote(),
         commands::version::version(),
         commands::check_logs::check_logs(),
+        commands::modversion::modversion(),
     ];
     commands.append(&mut commands::tags::load_tag_commands());
 
