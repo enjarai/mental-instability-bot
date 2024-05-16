@@ -47,7 +47,6 @@ pub(crate) async fn modversion(
 `{}` ({})",
                         slug, mod_version.version_number, loader
                     ))
-                    .ephemeral(true)
                 ).await?;
             } else {
                 ctx.send(
@@ -57,7 +56,6 @@ pub(crate) async fn modversion(
 {} `{}` ({})",
                         slug, version.unwrap_or("any".to_string()), loader
                     ))
-                    .ephemeral(true)
                 ).await?;
             }
         },
@@ -69,7 +67,6 @@ pub(crate) async fn modversion(
                         "Not a valid Modrinth project: {}",
                         slug
                     ))
-                    .ephemeral(true)
                 ).await?;
             } else {
                 return Err("Unknown status code returned by API".into());

@@ -80,7 +80,6 @@ loader_version={}```",
                     .and_then(|loader| loader.version)
                     .unwrap_or_else(|| "unknown".to_owned())
             ))
-            .ephemeral(true),
     )
     .await?;
 
