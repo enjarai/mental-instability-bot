@@ -21,6 +21,12 @@ async fn quote_internal(
     icon_url: Option<&String>,
     attachments: Option<&Vec<Attachment>>,
 ) -> Result<(), Error> {
+    if ctx.guild_id() == None {
+        ctx.reply("Nuh uh :brombeere:").await?;
+
+        return Ok(());
+    }
+
     match get_config!(ctx.serenity_context()).quotes_channel {
         Some(id) => {
             let mut embed_author = CreateEmbedAuthor::new(author);
