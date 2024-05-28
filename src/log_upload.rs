@@ -1,10 +1,8 @@
-use std::{
-    collections::HashMap,
-    io::{Cursor, ErrorKind, Read},
-};
+use std::io::{Cursor, ErrorKind, Read};
 
 use anyhow::Result;
 use flate2::read::GzDecoder;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serenity::{
     all::{Attachment, Message},
@@ -14,14 +12,13 @@ use serenity::{
 use serenity::client::Context;
 
 use crate::{
-    constants::MCLOGS_BASE_URL,
+    constants::{MCLOGS_API_BASE_URL, MCLOGS_BASE_URL},
     get_config,
     log_checking::{check_checks, CheckResult},
 };
 
 #[derive(Deserialize, Clone)]
-struct LogData {
-    success: bool,
+struct UploadData {
     url: Option<String>,
     _error: Option<String>,
 }
@@ -29,6 +26,20 @@ struct LogData {
 #[derive(Serialize)]
 struct LogUpload<'a> {
     content: &'a str,
+}
+
+type Log = (String, LogType, String, CheckResult);
+
+enum LogType {
+    Uploaded,
+    Downloaded,
+}
+
+fn title_format(log_type: &LogType, name: &str) -> String {
+    match log_type {
+        LogType::Uploaded => format!("Uploaded {}", name),
+        LogType::Downloaded => format!("Scanned {}", name),
+    }
 }
 
 pub(crate) async fn check_for_logs(
@@ -43,43 +54,34 @@ pub(crate) async fn check_for_logs(
             .filter(|attachment| all || is_valid_log(attachment, &file_extensions))
             .collect();
 
-        if attachments.is_empty() {
+        let mut logs: Vec<Log> = upload_log_files(ctx, &attachments).await?;
+        logs.append(&mut check_pre_uploaded_logs(ctx, &message.content).await?);
+
+        if logs.is_empty() {
             return Ok(None);
         }
 
-        let logs = upload_log_files(ctx, &attachments).await?;
+        let edit = (
+            "",
+            logs.iter()
+                .map(|(name, t, _, check)| {
+                    let mut embed = CreateEmbed::new()
+                        .title(title_format(t, name))
+                        .color(check.severity.get_color());
 
-        let edit = if logs.is_empty() {
-            ("Failed to upload!", vec![], vec![])
-        } else {
-            (
-                "",
+                    for (title, body) in &check.reports {
+                        embed = embed.field(title, body, true);
+                    }
+
+                    embed
+                })
+                .collect(),
+            vec![CreateActionRow::Buttons(
                 logs.iter()
-                    .map(|(name, (_, check))| {
-                        let mut embed = CreateEmbed::new()
-                            .title(format!("Uploaded {}", name))
-                            .color(check.severity.get_color());
-
-                        for (title, body) in &check.reports {
-                            embed = embed.field(title, body, true);
-                        }
-
-                        embed
-                    })
+                    .map(|(name, _, url, _)| CreateButton::new_link(url).label(name))
                     .collect(),
-                vec![CreateActionRow::Buttons(
-                    logs.iter()
-                        .map(|(name, (log, _))| (name, log))
-                        .filter(|(_, log)| log.url.is_some())
-                        .map(|(name, log)| {
-                            CreateButton::new_link(log.url.clone().unwrap()).label(name)
-                        })
-                        .collect(),
-                )],
-            )
-        };
-
-        // reply.edit(ctx, edit).await?;
+            )],
+        );
 
         Ok(Some(edit))
     } else {
@@ -94,11 +96,8 @@ fn is_valid_log<T: AsRef<str>>(attachment: &Attachment, allowed_extensions: &[T]
             .any(|extension| attachment.filename.ends_with(extension.as_ref())))
 }
 
-async fn upload_log_files(
-    ctx: &Context,
-    attachments: &[&Attachment],
-) -> Result<HashMap<String, (LogData, CheckResult)>> {
-    let mut responses = HashMap::new();
+async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<Vec<Log>> {
+    let mut responses = vec![];
 
     for attachment in attachments {
         let data = if attachment.filename.ends_with(".gz") {
@@ -119,26 +118,65 @@ async fn upload_log_files(
 
         let data = upload(&log).await?;
 
-        if data.success {
-            responses.insert(
+        if let Some(url) = data.url {
+            responses.push((
                 attachment.filename.clone(),
-                (data, check_checks(ctx, &log).await?),
-            );
+                LogType::Uploaded,
+                url, 
+                check_checks(ctx, &log).await?,
+            ));
         }
     }
 
     Ok(responses)
 }
 
-async fn upload(log: &str) -> Result<LogData> {
+async fn check_pre_uploaded_logs(ctx: &Context, message_content: &str) -> Result<Vec<Log>> {
+    let mut responses = vec![];
+
+    for id in find_mclogs_urls(message_content).await? {
+        let log_data = download(&id).await?;
+        let checks = check_checks(ctx, &log_data).await?;
+        let url = format!("{}/{}", MCLOGS_BASE_URL, id);
+        responses.push((id, LogType::Downloaded, url, checks))
+    }
+
+    Ok(responses)
+}
+
+async fn find_mclogs_urls(message_content: &str) -> Result<Vec<String>> {
+    let regex = Regex::new(r#"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)"#).unwrap();
+
+    // TODO make work with multiple log links per message?
+    match regex.captures(message_content) {
+        Some(captures) => match captures.get(1) {
+            Some(mat) => Ok(vec![mat.as_str().to_string()]),
+            None => Ok(vec![]),
+        },
+        None => Ok(vec![]),
+    }
+}
+
+async fn upload(log: &str) -> Result<UploadData> {
     let client = reqwest::Client::new();
 
     Ok(client
-        .post(format!("{}/1/log", MCLOGS_BASE_URL))
+        .post(format!("{}/1/log", MCLOGS_API_BASE_URL))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(serde_urlencoded::to_string(LogUpload { content: log })?)
         .send()
         .await?
         .json()
+        .await?)
+}
+
+async fn download(id: &str) -> Result<String> {
+    let client = reqwest::Client::new();
+
+    Ok(client
+        .get(format!("{}/1/raw/{}", MCLOGS_API_BASE_URL, id))
+        .send()
+        .await?
+        .text()
         .await?)
 }

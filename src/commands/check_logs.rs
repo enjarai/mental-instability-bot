@@ -11,7 +11,7 @@ use serenity::all::Message;
     interaction_context = "Guild|BotDm|PrivateChannel"
 )]
 pub async fn check_logs(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
-    let reply = ctx.reply("Uploading logs...").await?;
+    let reply = ctx.reply("Scanning for logs...").await?;
 
     match check_for_logs(&ctx.serenity_context(), &msg, true).await {
         Ok(Some(edit)) => {
