@@ -1,6 +1,6 @@
 {
     "title": "Quilt support",
-    "description": "Currently I will not go out of my way to support Quilt, as I don't think it has gained enough traction, but this could very well change in the future.",
+    "description": "My mods are not built for Quilt, and I will not go out of my way to support it. Consider using Fabric instead if you encounter issues.",
     "color": 0xcc44cc,
     "thumbnail": "https://avatars.githubusercontent.com/u/78571508?s=200&v=4"
 }
