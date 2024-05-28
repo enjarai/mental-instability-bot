@@ -1,9 +1,9 @@
-use std::{borrow::Cow, cmp, fs};
+use std::{borrow::Cow, cmp, fs, path::Path};
 
-use serde::{Deserialize, Deserializer};
-use regex::{Captures, Regex};
-use serenity::client::Context;
 use anyhow::Result;
+use regex::{Captures, Regex};
+use serde::{Deserialize, Deserializer};
+use serenity::client::Context;
 
 #[derive(Deserialize, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 pub enum Severity {
@@ -13,7 +13,7 @@ pub enum Severity {
 }
 
 impl Severity {
-    pub fn get_color(&self) -> u32 {
+    pub fn get_color(self) -> u32 {
         match self {
             Severity::None => 0x219ebc,
             Severity::Medium => 0xf77f00,
@@ -35,8 +35,10 @@ impl LogCheck {
     pub fn create_report(&self, regex_used: &Regex, captures: &Captures) -> (String, String) {
         let mut result = self.response.clone();
         for group in regex_used.capture_names() {
-            if let Some(group) = group && let Some(capture) = captures.name(group) {
-                result = result.replace(&format!("{{{}}}", group), capture.as_str())
+            if let Some(group) = group
+                && let Some(capture) = captures.name(group)
+            {
+                result = result.replace(&format!("{{{group}}}"), capture.as_str());
             }
         }
         (self.title.clone(), result)
@@ -48,10 +50,14 @@ pub struct CheckResult {
     pub reports: Vec<(String, String)>,
 }
 
-fn deserialize_regex<'de, D>(deserializer: D) -> Result<Vec<Regex>, D::Error> where D: Deserializer<'de> {
+fn deserialize_regex<'de, D>(deserializer: D) -> Result<Vec<Regex>, D::Error>
+where
+    D: Deserializer<'de>,
+{
     let regexes = <Vec<Cow<str>>>::deserialize(deserializer)?;
 
-    Ok(regexes.iter()
+    Ok(regexes
+        .iter()
         .map(|r| Regex::new(r).expect("Incorrect regex in log check"))
         .collect())
 }
@@ -66,11 +72,15 @@ pub fn load_checks() -> Vec<LogCheck> {
         let path = file.path();
         let file_name = file.file_name().into_string().expect("reading filename");
 
-        if file_name.ends_with(".toml") {
-            let check = toml::from_str::<LogCheck>(&fs::read_to_string(path).expect("reading log check"))
-                .expect("parsing log check");
+        if Path::new(&file_name)
+            .extension()
+            .map_or(false, |ext| ext.eq_ignore_ascii_case("toml"))
+        {
+            let check =
+                toml::from_str::<LogCheck>(&fs::read_to_string(path).expect("reading log check"))
+                    .expect("parsing log check");
 
-            result.push(check)
+            result.push(check);
         }
     }
 

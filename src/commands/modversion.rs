@@ -30,48 +30,49 @@ pub(crate) async fn modversion(
     let version_query = match &mut version {
         Some(version) => {
             version.retain(|c| char::is_ascii_alphanumeric(&c) || r#"-_+."#.contains(c));
-            format!("game_versions=[%22{}%22]&", version)
-        },
-        None => "".to_string()
+            format!("game_versions=[%22{version}%22]&")
+        }
+        None => "".to_string(),
     };
 
     match reqwest::get(format!(
         "{}/project/{}/version?{}loaders=[%22{}%22]",
         crate::constants::MODRINTH_API_URL,
-        slug, version_query, loader
-    )).await?.error_for_status() {
+        slug,
+        version_query,
+        loader
+    ))
+    .await?
+    .error_for_status()
+    {
         Ok(modrinth_response) => {
-            let mod_versions: Vec<ModVersion> = serde_json::from_str(&modrinth_response.text().await?)?;
+            let mod_versions: Vec<ModVersion> =
+                serde_json::from_str(&modrinth_response.text().await?)?;
 
             if let Some(mod_version) = mod_versions.get(0) {
-                ctx.send(
-                    CreateReply::default()
-                    .content(format!(
-                        "Latest available version for {} is:
+                ctx.send(CreateReply::default().content(format!(
+                    "Latest available version for {} is:
 `{}` ({})",
-                        slug, mod_version.version_number, loader
-                    ))
-                ).await?;
+                    slug, mod_version.version_number, loader
+                )))
+                .await?;
             } else {
-                ctx.send(
-                    CreateReply::default()
-                    .content(format!(
-                        "No valid versions found for:
+                ctx.send(CreateReply::default().content(format!(
+                    "No valid versions found for:
 {} `{}` ({})",
-                        slug, version.unwrap_or("any".to_string()), loader
-                    ))
-                ).await?;
+                    slug,
+                    version.unwrap_or("any".to_string()),
+                    loader
+                )))
+                .await?;
             }
-        },
+        }
         Err(err) => {
             if err.status() == Some(StatusCode::NOT_FOUND) {
                 ctx.send(
-                    CreateReply::default()
-                    .content(format!(
-                        "Not a valid Modrinth project: {}",
-                        slug
-                    ))
-                ).await?;
+                    CreateReply::default().content(format!("Not a valid Modrinth project: {slug}")),
+                )
+                .await?;
             } else {
                 return Err("Unknown status code returned by API".into());
             }

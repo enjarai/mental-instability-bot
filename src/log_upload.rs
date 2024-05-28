@@ -1,4 +1,7 @@
-use std::io::{Cursor, ErrorKind, Read};
+use std::{
+    io::{Cursor, ErrorKind, Read},
+    path::Path,
+};
 
 use anyhow::Result;
 use flate2::read::GzDecoder;
@@ -37,8 +40,8 @@ enum LogType {
 
 fn title_format(log_type: &LogType, name: &str) -> String {
     match log_type {
-        LogType::Uploaded => format!("Uploaded {}", name),
-        LogType::Downloaded => format!("Scanned {}", name),
+        LogType::Uploaded => format!("Uploaded {name}"),
+        LogType::Downloaded => format!("Scanned {name}"),
     }
 }
 
@@ -51,7 +54,7 @@ pub(crate) async fn check_for_logs(
         let attachments: Vec<_> = message
             .attachments
             .iter()
-            .filter(|attachment| all || is_valid_log(attachment, &file_extensions))
+            .filter(|attachment| all || is_valid_log(attachment, file_extensions))
             .collect();
 
         let mut logs: Vec<Log> = upload_log_files(ctx, &attachments).await?;
@@ -100,7 +103,10 @@ async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<
     let mut responses = vec![];
 
     for attachment in attachments {
-        let data = if attachment.filename.ends_with(".gz") {
+        let data = if Path::new(&attachment.filename)
+            .extension()
+            .map_or(false, |ext| ext.eq_ignore_ascii_case("gz"))
+        {
             let mut reader = GzDecoder::new(Cursor::new(
                 attachment
                     .download()
@@ -122,7 +128,7 @@ async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<
             responses.push((
                 attachment.filename.clone(),
                 LogType::Uploaded,
-                url, 
+                url,
                 check_checks(ctx, &log).await?,
             ));
         }
@@ -134,17 +140,17 @@ async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<
 async fn check_pre_uploaded_logs(ctx: &Context, message_content: &str) -> Result<Vec<Log>> {
     let mut responses = vec![];
 
-    for id in find_mclogs_urls(message_content).await? {
+    for id in find_mclogs_urls(message_content)? {
         let log_data = download(&id).await?;
         let checks = check_checks(ctx, &log_data).await?;
-        let url = format!("{}/{}", MCLOGS_BASE_URL, id);
-        responses.push((id, LogType::Downloaded, url, checks))
+        let url = format!("{MCLOGS_BASE_URL}/{id}");
+        responses.push((id, LogType::Downloaded, url, checks));
     }
 
     Ok(responses)
 }
 
-async fn find_mclogs_urls(message_content: &str) -> Result<Vec<String>> {
+fn find_mclogs_urls(message_content: &str) -> Result<Vec<String>> {
     let regex = Regex::new(r#"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)"#).unwrap();
 
     // TODO make work with multiple log links per message?
@@ -161,7 +167,7 @@ async fn upload(log: &str) -> Result<UploadData> {
     let client = reqwest::Client::new();
 
     Ok(client
-        .post(format!("{}/1/log", MCLOGS_API_BASE_URL))
+        .post(format!("{MCLOGS_API_BASE_URL}/1/log"))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(serde_urlencoded::to_string(LogUpload { content: log })?)
         .send()
@@ -174,7 +180,7 @@ async fn download(id: &str) -> Result<String> {
     let client = reqwest::Client::new();
 
     Ok(client
-        .get(format!("{}/1/raw/{}", MCLOGS_API_BASE_URL, id))
+        .get(format!("{MCLOGS_API_BASE_URL}/1/raw/{id}"))
         .send()
         .await?
         .text()

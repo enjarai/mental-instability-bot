@@ -13,7 +13,7 @@ use serenity::all::Message;
 pub async fn check_logs(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
     let reply = ctx.reply("Scanning for logs...").await?;
 
-    match check_for_logs(&ctx.serenity_context(), &msg, true).await {
+    match check_for_logs(ctx.serenity_context(), &msg, true).await {
         Ok(Some(edit)) => {
             let mut reply_builder = CreateReply::default().content(edit.0).components(edit.2);
             for ele in edit.1 {
@@ -31,7 +31,7 @@ pub async fn check_logs(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
             reply
                 .edit(
                     ctx,
-                    CreateReply::default().content(format!("Error, cannot upload logs: {}", err)),
+                    CreateReply::default().content(format!("Error, cannot upload logs: {err}")),
                 )
                 .await?;
         }

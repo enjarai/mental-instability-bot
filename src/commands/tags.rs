@@ -35,14 +35,14 @@ pub fn load_tag_commands() -> Vec<poise::Command<ConfigData, Error>> {
             let tag = json5::from_str::<Tag>(&fs::read_to_string(path).expect("reading tag"))
                 .expect("parsing tag");
 
-            result.push(tag_command(String::from(tag_name), tag))
+            result.push(tag_command(tag_name, tag))
         }
     }
 
     result
 }
 
-fn tag_command(tag_name: String, tag: Tag) -> poise::Command<ConfigData, Error> {
+fn tag_command(tag_name: &str, tag: Tag) -> poise::Command<ConfigData, Error> {
     async fn inner(ctx: Context<'_>) -> Result<(), Error> {
         let data = ctx.command().custom_data.as_ref();
         let tag = data
@@ -68,8 +68,8 @@ fn tag_command(tag_name: String, tag: Tag) -> poise::Command<ConfigData, Error> 
     }
 
     poise::Command {
-        name: tag_name.clone(),
-        description: Some(format!("Displays the {} tag", tag_name)),
+        name: tag_name.to_string(),
+        description: Some(format!("Displays the {tag_name} tag")),
         prefix_action: Some(|ctx| {
             Box::pin(async move {
                 inner(ctx.into())

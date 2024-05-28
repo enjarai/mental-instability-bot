@@ -45,7 +45,7 @@ pub(crate) async fn version(
         yarn_response = stripped;
     }
     if yarn_response.trim().is_empty() {
-        yarn_response = "{}"
+        yarn_response = "{}";
     }
     let yarn_version: YarnVersion = serde_json::from_str(yarn_response)?;
 
@@ -64,7 +64,7 @@ pub(crate) async fn version(
         loader_response = stripped;
     }
     if loader_response.trim().is_empty() {
-        loader_response = "{}"
+        loader_response = "{}";
     }
     let loader_version: LoaderWrapper = serde_json::from_str(loader_response)?;
 

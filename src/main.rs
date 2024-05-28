@@ -57,7 +57,7 @@ impl EventHandler for Handler {
                 // no-op
             }
             Err(err) => {
-                println!("Log uploading threw error: {}", err);
+                println!("Log uploading threw error: {err}");
             }
         }
     }
@@ -79,7 +79,7 @@ async fn main() {
         commands,
         on_error: |err| {
             Box::pin(async move {
-                println!("{}", err);
+                println!("{err}");
             })
         },
         ..Default::default()
