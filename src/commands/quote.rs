@@ -21,14 +21,17 @@ async fn quote_internal(
     icon_url: Option<&String>,
     attachments: Option<&Vec<Attachment>>,
 ) -> Result<(), Error> {
-    if ctx.guild_id() == None {
-        ctx.reply("Nuh uh :brombeere:").await?;
-
-        return Ok(());
-    }
-
     match get_config!(ctx.serenity_context()).quotes_channel {
         Some(id) => {
+            let channel = ChannelId::new(id);
+
+            if ctx.guild_id() == None {
+                ctx.reply("Nuh uh :brombeere:").await?;
+        
+                return Ok(());
+            }
+
+
             let mut embed_author = CreateEmbedAuthor::new(author);
 
             if let Some(icon) = icon_url {
@@ -46,7 +49,7 @@ async fn quote_internal(
 
             let builder = CreateMessage::new().embed(embed);
 
-            match ChannelId::new(id).send_message(ctx.http(), builder).await {
+            match channel.send_message(ctx.http(), builder).await {
                 Ok(_) => {
                     ctx.reply(format!("Quoted: '{quote}' - {author}")).await?;
                 }

@@ -21,7 +21,11 @@ struct LoaderVersion {
 }
 
 /// Get current Fabric versions for a given Minecraft version
-#[poise::command(slash_command)]
+#[poise::command(
+    slash_command,
+    install_context = "Guild|User",
+    interaction_context = "Guild|BotDm|PrivateChannel"
+)]
 pub(crate) async fn version(
     ctx: Context<'_>,
     #[description = "Get the latest Fabric versions for the given game version"] version: String,

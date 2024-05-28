@@ -1,11 +1,12 @@
 #![feature(let_chains)]
+#![feature(async_fn_traits)]
 
 mod commands;
 mod config;
 mod constants;
+mod log_checking;
 mod log_upload;
 mod macros;
-mod log_checking;
 
 use std::fs;
 
@@ -14,6 +15,7 @@ use log_checking::load_checks;
 use log_checking::LogCheck;
 use log_upload::check_for_logs;
 use poise::FrameworkOptions;
+use serenity::all::CreateMessage;
 use serenity::all::Message;
 use serenity::all::Ready;
 use serenity::async_trait;
@@ -40,8 +42,23 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, message: Message) {
-        if let Err(err) = check_for_logs(&ctx, &message, false).await {
-            println!("Log uploading threw error: {}", err);
+        match check_for_logs(&ctx, &message, false).await {
+            Ok(Some(edit)) => {
+                let reply = CreateMessage::default()
+                    .content(edit.0)
+                    .embeds(edit.1)
+                    .components(edit.2)
+                    .reference_message(&message);
+                if let Err(err) = message.channel_id.send_message(ctx, reply).await {
+                    println!("Error posting log upload: {err}");
+                }
+            }
+            Ok(None) => {
+                // no-op
+            }
+            Err(err) => {
+                println!("Log uploading threw error: {}", err);
+            }
         }
     }
 }

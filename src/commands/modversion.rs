@@ -10,7 +10,11 @@ struct ModVersion {
 }
 
 /// Get the current version of a mod for a given Minecraft version
-#[poise::command(slash_command)]
+#[poise::command(
+    slash_command,
+    install_context = "Guild|User",
+    interaction_context = "Guild|BotDm|PrivateChannel"
+)]
 pub(crate) async fn modversion(
     ctx: Context<'_>,
     #[description = "The slug of the Modrinth project"] mut slug: String,

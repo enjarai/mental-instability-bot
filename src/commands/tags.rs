@@ -2,6 +2,8 @@ use std::fs;
 
 use poise::CreateReply;
 use serde::Deserialize;
+use serenity::all::InstallationContext;
+use serenity::all::InteractionContext;
 use serenity::builder::CreateEmbed;
 
 use crate::ConfigData;
@@ -84,6 +86,8 @@ fn tag_command(tag_name: String, tag: Tag) -> poise::Command<ConfigData, Error> 
         }),
         context_menu_action: None,
         custom_data: Box::new(tag),
+        install_context: Some(vec![InstallationContext::Guild, InstallationContext::User]),
+        interaction_context: Some(vec![InteractionContext::Guild, InteractionContext::BotDm, InteractionContext::PrivateChannel]),
         ..Default::default()
     }
 }
