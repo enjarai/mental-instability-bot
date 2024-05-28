@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 
 use poise::CreateReply;
 use serde::Deserialize;
@@ -30,12 +31,15 @@ pub fn load_tag_commands() -> Vec<poise::Command<ConfigData, Error>> {
         let path = file.path();
         let file_name = file.file_name().into_string().expect("reading filename");
 
-        if file_name.ends_with(".json5") {
+        if Path::new(&file_name)
+            .extension()
+            .map_or(false, |ext| ext.eq_ignore_ascii_case("json5"))
+        {
             let tag_name = file_name.strip_suffix(".json5").unwrap();
             let tag = json5::from_str::<Tag>(&fs::read_to_string(path).expect("reading tag"))
                 .expect("parsing tag");
 
-            result.push(tag_command(tag_name, tag))
+            result.push(tag_command(tag_name, tag));
         }
     }
 
@@ -49,9 +53,7 @@ fn tag_command(tag_name: &str, tag: Tag) -> poise::Command<ConfigData, Error> {
             .downcast_ref::<Tag>()
             .expect("Tag command broke, what??");
 
-        let mut embed = CreateEmbed::new()
-            .title(&tag.title)
-            .color(tag.color);
+        let mut embed = CreateEmbed::new().title(&tag.title).color(tag.color);
         if let Some(description) = &tag.description {
             embed = embed.description(description);
         }
@@ -87,7 +89,11 @@ fn tag_command(tag_name: &str, tag: Tag) -> poise::Command<ConfigData, Error> {
         context_menu_action: None,
         custom_data: Box::new(tag),
         install_context: Some(vec![InstallationContext::Guild, InstallationContext::User]),
-        interaction_context: Some(vec![InteractionContext::Guild, InteractionContext::BotDm, InteractionContext::PrivateChannel]),
+        interaction_context: Some(vec![
+            InteractionContext::Guild,
+            InteractionContext::BotDm,
+            InteractionContext::PrivateChannel,
+        ]),
         ..Default::default()
     }
 }

@@ -140,7 +140,7 @@ async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<
 async fn check_pre_uploaded_logs(ctx: &Context, message_content: &str) -> Result<Vec<Log>> {
     let mut responses = vec![];
 
-    for id in find_mclogs_urls(message_content)? {
+    for id in find_mclogs_urls(message_content) {
         let log_data = download(&id).await?;
         let checks = check_checks(ctx, &log_data).await?;
         let url = format!("{MCLOGS_BASE_URL}/{id}");
@@ -150,16 +150,16 @@ async fn check_pre_uploaded_logs(ctx: &Context, message_content: &str) -> Result
     Ok(responses)
 }
 
-fn find_mclogs_urls(message_content: &str) -> Result<Vec<String>> {
-    let regex = Regex::new(r#"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)"#).unwrap();
+fn find_mclogs_urls(message_content: &str) -> Vec<String> {
+    let regex = Regex::new(r"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)").unwrap();
 
     // TODO make work with multiple log links per message?
     match regex.captures(message_content) {
         Some(captures) => match captures.get(1) {
-            Some(mat) => Ok(vec![mat.as_str().to_string()]),
-            None => Ok(vec![]),
+            Some(mat) => vec![mat.as_str().to_string()],
+            None => vec![],
         },
-        None => Ok(vec![]),
+        None => vec![],
     }
 }
 

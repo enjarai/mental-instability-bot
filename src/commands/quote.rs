@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::get_config;
 
 use super::{Context, Error};
@@ -8,10 +10,12 @@ use serenity::{
 };
 
 fn is_image(filename: &str) -> bool {
-    filename.ends_with(".png")
-        || filename.ends_with(".jpg")
-        || filename.ends_with(".jpeg")
-        || filename.ends_with(".gif")
+    Path::new(filename).extension().map_or(false, |ext| {
+        ext.eq_ignore_ascii_case("png")
+            || ext.eq_ignore_ascii_case("jpg")
+            || ext.eq_ignore_ascii_case("jpeg")
+            || ext.eq_ignore_ascii_case("gif")
+    })
 }
 
 async fn quote_internal(
@@ -27,10 +31,9 @@ async fn quote_internal(
 
             if ctx.guild_id().is_none() {
                 ctx.reply("Nuh uh :brombeere:").await?;
-        
+
                 return Ok(());
             }
-
 
             let mut embed_author = CreateEmbedAuthor::new(author);
 

@@ -23,16 +23,16 @@ pub(crate) async fn modversion(
 ) -> Result<(), Error> {
     let mut loader = loader.unwrap_or("fabric".to_string());
 
-    slug.retain(|c| char::is_ascii_alphanumeric(&c) || r#"-_"#.contains(c));
+    slug.retain(|c| char::is_ascii_alphanumeric(&c) || r"-_".contains(c));
     loader.retain(|c| char::is_ascii_alphabetic(&c));
     let loader = loader.to_lowercase();
 
     let version_query = match &mut version {
         Some(version) => {
-            version.retain(|c| char::is_ascii_alphanumeric(&c) || r#"-_+."#.contains(c));
+            version.retain(|c| char::is_ascii_alphanumeric(&c) || r"-_+.".contains(c));
             format!("game_versions=[%22{version}%22]&")
         }
-        None => "".to_string(),
+        None => String::new(),
     };
 
     match reqwest::get(format!(

@@ -15,9 +15,9 @@ pub enum Severity {
 impl Severity {
     pub fn get_color(self) -> u32 {
         match self {
-            Severity::None => 0x219ebc,
-            Severity::Medium => 0xf77f00,
-            Severity::High => 0xd62828,
+            Severity::None => 0x0021_9ebc,
+            Severity::Medium => 0x00f7_7f00,
+            Severity::High => 0x00d6_2828,
         }
     }
 }
