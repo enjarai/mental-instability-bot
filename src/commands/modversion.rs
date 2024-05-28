@@ -49,7 +49,7 @@ pub(crate) async fn modversion(
             let mod_versions: Vec<ModVersion> =
                 serde_json::from_str(&modrinth_response.text().await?)?;
 
-            if let Some(mod_version) = mod_versions.get(0) {
+            if let Some(mod_version) = mod_versions.first() {
                 ctx.send(CreateReply::default().content(format!(
                     "Latest available version for {} is:
 `{}` ({})",

@@ -25,7 +25,7 @@ async fn quote_internal(
         Some(id) => {
             let channel = ChannelId::new(id);
 
-            if ctx.guild_id() == None {
+            if ctx.guild_id().is_none() {
                 ctx.reply("Nuh uh :brombeere:").await?;
         
                 return Ok(());
@@ -41,7 +41,7 @@ async fn quote_internal(
             let mut embed = CreateEmbed::new().description(quote).author(embed_author);
 
             if let Some(attachments) = attachments
-                && attachments.len() > 0
+                && !attachments.is_empty()
                 && is_image(&attachments[0].filename)
             {
                 embed = embed.image(&attachments[0].url);
