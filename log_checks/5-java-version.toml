@@ -1,0 +1,5 @@
+regexes = ["- Replace '.+' \\(java\\) (?<current>[0-9]+) with version (?<required>[0-9]+) or later."]
+severity = "High"
+title = "Issue: Wrong Java version"
+response = """Incorrect Java version used ({current} instead of {required}).
+Solution: [Download](https://adoptium.net/temurin/releases/?version={required}) and use newer Java version"""
