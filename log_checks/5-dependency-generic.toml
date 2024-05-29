@@ -1,0 +1,8 @@
+regexes = [
+    "Mod '(?<mod>.+)' \\(.+\\) .+ requires any version between .+ and .+ of (?<dep>.+),", 
+    "Mod '(?<mod>.+)' \\(.+\\) .+ requires version .+ or later of (?<dep>.+),"
+    ]
+severity = "High"
+title = "Issue: Dependency missing"
+response = """A dependency for {mod}, is missing.
+Solution: Install a mod called `{dep}`."""
