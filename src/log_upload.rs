@@ -17,7 +17,7 @@ use serenity::client::Context;
 use crate::{
     constants::{MCLOGS_API_BASE_URL, MCLOGS_BASE_URL},
     get_config,
-    log_checking::{check_checks, CheckResult},
+    log_checking::check_checks,
 };
 
 #[derive(Deserialize, Clone)]
@@ -31,7 +31,7 @@ struct LogUpload<'a> {
     content: &'a str,
 }
 
-type Log = (String, LogType, String, CheckResult);
+type Log = (String, LogType, String, String);
 
 enum LogType {
     Uploaded,
@@ -57,8 +57,8 @@ pub(crate) async fn check_for_logs(
             .filter(|attachment| all || is_valid_log(attachment, file_extensions))
             .collect();
 
-        let mut logs: Vec<Log> = upload_log_files(ctx, &attachments).await?;
-        logs.append(&mut check_pre_uploaded_logs(ctx, &message.content).await?);
+        let mut logs: Vec<Log> = upload_log_files(&attachments).await?;
+        logs.append(&mut check_pre_uploaded_logs(&message.content).await?);
 
         if logs.is_empty() {
             return Ok(None);
@@ -67,14 +67,11 @@ pub(crate) async fn check_for_logs(
         let edit = (
             "",
             logs.iter()
-                .map(|(name, t, _, check)| {
+                .map(|(name, t, _, log)| {
                     let mut embed = CreateEmbed::new()
-                        .title(title_format(t, name))
-                        .color(check.severity.get_color());
-
-                    for (title, body) in &check.reports {
-                        embed = embed.field(title, body, true);
-                    }
+                        .title(title_format(t, name));
+                    
+                    embed = check_checks(embed, log);
 
                     embed
                 })
@@ -99,7 +96,7 @@ fn is_valid_log<T: AsRef<str>>(attachment: &Attachment, allowed_extensions: &[T]
             .any(|extension| attachment.filename.ends_with(extension.as_ref())))
 }
 
-async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<Vec<Log>> {
+async fn upload_log_files(attachments: &[&Attachment]) -> Result<Vec<Log>> {
     let mut responses = vec![];
 
     for attachment in attachments {
@@ -129,7 +126,7 @@ async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<
                 attachment.filename.clone(),
                 LogType::Uploaded,
                 url,
-                check_checks(ctx, &log).await?,
+                log.into_owned(),
             ));
         }
     }
@@ -137,14 +134,13 @@ async fn upload_log_files(ctx: &Context, attachments: &[&Attachment]) -> Result<
     Ok(responses)
 }
 
-async fn check_pre_uploaded_logs(ctx: &Context, message_content: &str) -> Result<Vec<Log>> {
+async fn check_pre_uploaded_logs(message_content: &str) -> Result<Vec<Log>> {
     let mut responses = vec![];
 
     for id in find_mclogs_urls(message_content) {
         let log_data = download(&id).await?;
-        let checks = check_checks(ctx, &log_data).await?;
         let url = format!("{MCLOGS_BASE_URL}/{id}");
-        responses.push((id, LogType::Downloaded, url, checks));
+        responses.push((id, LogType::Downloaded, url, log_data));
     }
 
     Ok(responses)

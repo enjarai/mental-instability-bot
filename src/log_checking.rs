@@ -1,9 +1,8 @@
-use std::{borrow::Cow, cmp, fs, path::Path};
+use std::fmt::Display;
 
-use anyhow::Result;
-use regex::{Captures, Regex};
-use serde::{Deserialize, Deserializer};
-use serenity::client::Context;
+use regex::Regex;
+use serde::Deserialize;
+use serenity::all::CreateEmbed;
 
 #[derive(Deserialize, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 pub enum Severity {
@@ -22,90 +21,200 @@ impl Severity {
     }
 }
 
-#[derive(Deserialize)]
-pub struct LogCheck {
-    #[serde(deserialize_with = "deserialize_regex")]
-    regexes: Vec<Regex>,
-    severity: Severity,
-    title: String,
-    response: String,
+pub enum ModLoader {
+    Fabric(Option<String>),
+    Forge,
+    NeoForge,
+    Quilt(Option<String>),
 }
 
-impl LogCheck {
-    pub fn create_report(&self, regex_used: &Regex, captures: &Captures) -> (String, String) {
-        let mut result = self.response.clone();
-        for group in regex_used.capture_names() {
-            if let Some(group) = group
-                && let Some(capture) = captures.name(group)
-            {
-                result = result.replace(&format!("{{{group}}}"), capture.as_str());
+impl Display for ModLoader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Fabric(Some(version)) => {
+                write!(f, "<:fabric:1246103308842700831> `{version}`")
+            }
+            Self::Fabric(None) => write!(f, "<:fabric:1246103308842700831>"),
+            Self::Forge => write!(f, "<:forge:1246170624364380221>"),
+            Self::NeoForge => write!(f, "<:neoforge:1246170626159415326>"),
+            Self::Quilt(Some(version)) => {
+                write!(f, "<:quilt:1246170627652718653> `{version}`")
+            }
+            Self::Quilt(None) => write!(f, "<:quilt:1246170627652718653>"),
+        }
+    }
+}
+
+struct ScanMod(&'static str, &'static str);
+
+struct DiscoveredMod(String, String);
+
+struct EnvironmentContext {
+    mc_version: Option<String>,
+    loader: Option<ModLoader>,
+    known_mods: Vec<DiscoveredMod>,
+}
+
+impl Display for EnvironmentContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(version) = &self.mc_version {
+            write!(f, "**Minecraft:** `{}`\n", version)?;
+        }
+        if let Some(loader) = &self.loader {
+            write!(f, "**Loader:** {}\n", loader)?;
+        }
+        if !self.known_mods.is_empty() {
+            write!(f, "\n")?;
+            write!(f, "**Known Mods:**\n")?;
+            for ele in &self.known_mods {
+                write!(f, "- {} `{}`\n", ele.0, ele.1)?;
             }
         }
-        (self.title.clone(), result)
+        Ok(())
     }
 }
 
-pub struct CheckResult {
-    pub severity: Severity,
-    pub reports: Vec<(String, String)>,
+pub fn check_checks(embed: CreateEmbed, log: &str) -> CreateEmbed {
+    let ctx = get_environment_info(log);
+
+    let embed = embed
+        .color(Severity::None.get_color())
+        .description(format!("{ctx}"));
+    embed
 }
 
-fn deserialize_regex<'de, D>(deserializer: D) -> Result<Vec<Regex>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let regexes = <Vec<Cow<str>>>::deserialize(deserializer)?;
-
-    Ok(regexes
-        .iter()
-        .map(|r| Regex::new(r).expect("Incorrect regex in log check"))
-        .collect())
-}
-
-pub fn load_checks() -> Vec<LogCheck> {
-    let files = fs::read_dir("./log_checks/").expect("reading log checks directory");
-
-    let mut result = vec![];
-
-    for file in files {
-        let file = file.expect("locating log check");
-        let path = file.path();
-        let file_name = file.file_name().into_string().expect("reading filename");
-
-        if Path::new(&file_name)
-            .extension()
-            .map_or(false, |ext| ext.eq_ignore_ascii_case("toml"))
-        {
-            let check =
-                toml::from_str::<LogCheck>(&fs::read_to_string(path).expect("reading log check"))
-                    .expect("parsing log check");
-
-            result.push(check);
-        }
-    }
-
-    result
-}
-
-pub async fn check_checks(ctx: &Context, log: &str) -> Result<CheckResult> {
-    let data = ctx.data.read().await;
-    let checks = data.get::<crate::LogChecksData>().expect("no log checks?");
-
-    let mut result = CheckResult {
-        severity: Severity::None,
-        reports: vec![],
-    };
-
-    for check in checks {
-        for regex in &check.regexes {
-            if let Some(captures) = regex.captures(log) {
-                result.severity = cmp::max(result.severity, check.severity);
-                result.reports.push(check.create_report(regex, &captures));
-
-                break;
+macro_rules! grab {
+    ($log:expr,$($arg:expr),*) => {'a: {
+        $(
+            if let Some(cap) = Regex::new($arg).expect("Incorrect regex").captures($log) {
+                break 'a Some(cap.get(1).map(|m| m.as_str().to_string()));
             }
-        }
+        )*
+        None
+    }};
+}
+
+macro_rules! known_mods {
+    ($log:expr,$($arg:expr),*) => {{
+        let mut vec = vec![];
+        $(
+            if let Some(mat) = grab!(
+                $log,
+                &format!(r"\n\s*- {} (\S+)", $arg.0),
+                &format!(r"\n\s*{}: .+ (\S+)", $arg.0)
+            ) {
+                vec.push(DiscoveredMod($arg.1.to_string(), mat.expect("Regex issue what")));
+            }
+        )*
+        vec
+    }};
+}
+
+fn get_environment_info(log: &str) -> EnvironmentContext {
+    let mut loader = None;
+
+    if let Some(fabric_version) = grab!(
+        log,
+        r"Loading Minecraft [^\s]+ with Fabric Loader ([^\s]+)",
+        r"fabricloader: Fabric Loader ([^\s]+)",
+        r"Is Modded: Definitely; [^\s]+ brand changed to 'fabric'"
+    ) {
+        loader = Some(ModLoader::Fabric(fabric_version));
+    } else if let Some(_) = grab!(
+        log,
+        r"ne\.mi\.fm\.lo",
+        r"Is Modded: Definitely; [^\s]+ brand changed to 'forge'"
+    ) {
+        loader = Some(ModLoader::Forge);
+    } else if let Some(_) = grab!(
+        log,
+        r"net\.neoforged\.fml\.loading",
+        r"Is Modded: Definitely; [^\s]+ brand changed to 'neoforge'"
+    ) {
+        loader = Some(ModLoader::NeoForge);
+    } else if let Some(quilt_version) = grab!(
+        log,
+        r"Loading Minecraft [^\s]+ with Quilt Loader ([^\s]+)",
+        r"Is Modded: Definitely; [^\s]+ brand changed to 'quilt'"
+    ) {
+        loader = Some(ModLoader::Quilt(quilt_version));
     }
 
-    Ok(result)
+    let mc_version = grab!(
+        log,
+        r"Loading Minecraft ([^\s]+)",
+        r"minecraft server version ([^\s]+)",
+        r"Minecraft Version: ([^\s]+)"
+    )
+    .map(|o| o.expect("Regex error!!!"));
+
+    let known_mods = known_mods!(
+        log,
+        ScanMod(
+            "fabric",
+            "<:fabric:1246103308842700831> Fabric API"
+        ),
+        ScanMod(
+            "fabric-api",
+            "<:fabric:1246103308842700831> Fabric API"
+        ),
+        ScanMod(
+            "do_a_barrel_roll",
+            "<:doabarrelroll:1107712867823792210> Do a Barrel Roll"
+        ),
+        ScanMod(
+            "showmeyourskin",
+            "<:showmeyourskin:1107713046987686009> Show Me Your Skin"
+        ),
+        ScanMod(
+            "rolling_down_in_the_deep",
+            "<:rollingdowninthedeep:1246194315580145734> Rolling Down in the Deep"
+        ),
+        ScanMod(
+            "mini_tardis",
+            "<:minitardis:1246194819739549707> Mini Tardis"
+        ),
+        ScanMod(
+            "skinshuffle",
+            "<:skinshuffle:1120649582502756392> SkinShuffle"
+        ),
+        ScanMod(
+            "omnihopper",
+            "<:omnihopper:1107713581446873158> Omni-Hopper"
+        ),
+        ScanMod(
+            "recursiveresources",
+            "<:recursiveresources:1107713344355442799> Recursive Resources"
+        ),
+        ScanMod(
+            "shared-resources",
+            "<:sharedresources:1107713221063872532> Shared Resources"
+        ),
+        ScanMod(
+            "clientpaintings",
+            "<:clientpaintings:1107713678712774778> Client Paintings"
+        ),
+        ScanMod(
+            "moderate-loading-screen",
+            "<:moderateloadingscreen:1107713920271122462> Mod-erate Loading Screen"
+        ),
+        ScanMod(
+            "blahaj-totem",
+            "<:shork:1172685466676502559> Blåhaj of Undying"
+        ),
+        ScanMod(
+            "restart_detector",
+            "<:restartdetector:1172685600000847922> Restart Detector"
+        ),
+        ScanMod(
+            "cicada",
+            "<:cicada:1246197518807863367> CICADA"
+        )
+    );
+
+    EnvironmentContext {
+        mc_version,
+        loader,
+        known_mods,
+    }
 }

@@ -11,8 +11,6 @@ mod macros;
 use std::fs;
 
 use config::Config;
-use log_checking::load_checks;
-use log_checking::LogCheck;
 use log_upload::check_for_logs;
 use poise::FrameworkOptions;
 use serenity::all::CreateMessage;
@@ -25,12 +23,6 @@ pub struct ConfigData;
 
 impl TypeMapKey for ConfigData {
     type Value = Config;
-}
-
-pub struct LogChecksData;
-
-impl TypeMapKey for LogChecksData {
-    type Value = Vec<LogCheck>;
 }
 
 struct Handler;
@@ -110,7 +102,6 @@ async fn main() {
     {
         let mut data_lock = client.data.write().await;
         data_lock.insert::<ConfigData>(config);
-        data_lock.insert::<LogChecksData>(load_checks());
     }
 
     // start listening for events by starting a single shard
