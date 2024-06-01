@@ -68,9 +68,8 @@ pub(crate) async fn check_for_logs(
             "",
             logs.iter()
                 .map(|(name, t, _, log)| {
-                    let mut embed = CreateEmbed::new()
-                        .title(title_format(t, name));
-                    
+                    let mut embed = CreateEmbed::new().title(title_format(t, name));
+
                     embed = check_logs(embed, log);
 
                     embed
@@ -149,14 +148,10 @@ async fn check_pre_uploaded_logs(message_content: &str) -> Result<Vec<Log>> {
 fn find_mclogs_urls(message_content: &str) -> Vec<String> {
     let regex = Regex::new(r"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)").unwrap();
 
-    // TODO make work with multiple log links per message?
-    match regex.captures(message_content) {
-        Some(captures) => match captures.get(1) {
-            Some(mat) => vec![mat.as_str().to_string()],
-            None => vec![],
-        },
-        None => vec![],
-    }
+    regex
+        .captures_iter(message_content)
+        .map(|caps| caps.get(1).expect("Regex err").as_str().to_string())
+        .collect()
 }
 
 async fn upload(log: &str) -> Result<UploadData> {

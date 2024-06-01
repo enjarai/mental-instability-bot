@@ -28,10 +28,18 @@ pub struct CheckReport {
 }
 
 pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
-    [dependency_generic, java, polymc, optifabric, indium]
-        .iter()
-        .filter_map(|check| check(log, ctx))
-        .collect()
+    [
+        dependency_generic,
+        entrypoint_generic,
+        mixins_generic,
+        java,
+        polymc,
+        optifabric,
+        indium,
+    ]
+    .iter()
+    .filter_map(|check| check(log, ctx))
+    .collect()
 }
 
 pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
@@ -48,6 +56,34 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
             description: format!(
                 "The `{dependent}` mod needs `{dependency}` to be installed, but it is missing."
             ),
+            severity: Severity::High,
+        });
+    }
+    None
+}
+
+pub fn mixins_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(Some(mod_id)) = grab!(
+        log,
+        r"MixinApplyError: Mixin \[\S+\.mixins\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.mixins\.json\] FAILED during \S+"
+    ) {
+        return Some(CheckReport {
+            title: "Mixin error".to_string(),
+            description: format!("The mod `{mod_id}` has encountered a mixin error, though it may not have caused it. Further investigation is required."),
+            severity: Severity::High,
+        });
+    }
+    None
+}
+
+pub fn entrypoint_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(Some(mod_id)) = grab!(
+        log,
+        r"RuntimeException: Could not execute entrypoint stage '\S+' due to errors, provided by '(\S+)'!"
+    ) {
+        return Some(CheckReport {
+            title: "Entrypoint error".to_string(),
+            description: format!("The mod `{mod_id}` has encountered an error in it's entrypoint, though it may not have caused it. Further investigation is required."),
             severity: Severity::High,
         });
     }
