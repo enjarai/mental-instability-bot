@@ -20,13 +20,15 @@ pub fn check_logs(embed: CreateEmbed, log: &str) -> CreateEmbed {
         "{ctx}{}",
         if checks.is_empty() {
             ""
+        } else if matches!(severity, Severity::None) {
+            "\n**More Information:**\n"
         } else {
             "\n**Potential Issues Detected:**\n"
         }
     ));
 
     for ele in &checks {
-        embed = embed.field(format!("- {}", &ele.title), &ele.description, true);
+        embed = embed.field(format!("- {}", &ele.title), &ele.description, false);
     }
 
     embed

@@ -29,17 +29,35 @@ pub struct CheckReport {
 
 pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
     [
+        crash_report_analysis,
         dependency_generic,
-        entrypoint_generic,
-        mixins_generic,
+        crash_generic,
         java,
+        missing_field,
         polymc,
         optifabric,
+        bclib,
         indium,
     ]
     .iter()
     .filter_map(|check| check(log, ctx))
     .collect()
+}
+
+pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(captures) = grab_all!(
+        log,
+        r"---- Minecraft Crash Report ----\n// .+\n\nTime: .+\nDescription: (.+)\n\n(.+)\n"
+    ) {
+        let description = captures.get(1).expect("Regex err").as_str();
+        let error = captures.get(2).expect("Regex err 2").as_str();
+        return Some(CheckReport {
+            title: "Crash report analysis".to_string(),
+            description: format!("Context: `{description}`\n```\n{error}\n```"),
+            severity: Severity::None,
+        });
+    }
+    None
 }
 
 pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
@@ -62,21 +80,32 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
     None
 }
 
-pub fn mixins_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(captures) = grab_all!(
+        log,
+        r"InvalidInjectionException: Critical injection failure: @Inject annotation on \S+ could not find any targets matching '.+' in \S+\. Using refmap \S+ \[PREINJECT Applicator Phase \-> \S+:(\w+) from mod (\w+)",
+        r"InvalidAccessorException: No candidates were found matching \S+ in \S+ for \S+:(\w+) from mod (\w+)"
+    ) {
+        let mixin = captures.get(1).expect("Regex err").as_str();
+        let mod_id = captures.get(2).expect("Regex err 2").as_str();
+        return Some(CheckReport {
+            title: "Mixin inject failed".to_string(),
+            description: format!("Mixin `{mixin}` from mod `{mod_id}` has failed. It is possible that `{mod_id}` is not compatible with this Minecraft version, consider double-checking its version."),
+            severity: Severity::High,
+        });
+    }
+
     if let Some(Some(mod_id)) = grab!(
         log,
         r"MixinApplyError: Mixin \[\S+\.mixins\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.mixins\.json\] FAILED during \S+"
     ) {
         return Some(CheckReport {
             title: "Mixin error".to_string(),
-            description: format!("The mod `{mod_id}` has encountered a mixin error, though it may not have caused it. Further investigation is required."),
+            description: format!("The mod `{mod_id}` has encountered a mixin error, this may be caused by a mismatch in Minecraft version or a mod incompatibility. Further investigation is required."),
             severity: Severity::High,
         });
     }
-    None
-}
 
-pub fn entrypoint_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(Some(mod_id)) = grab!(
         log,
         r"RuntimeException: Could not execute entrypoint stage '\S+' due to errors, provided by '(\S+)'!"
@@ -151,6 +180,19 @@ pub fn java(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     None
 }
 
+// java.lang.NoSuchFieldError
+
+pub fn missing_field(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if grab!(log, r"java\.lang\.NoSuchFieldError").is_some() {
+        return Some(CheckReport {
+            title: "Field missing error".to_string(),
+            description: "On the logical server some fields may be deleted by Fabric Loader when a mod defines them as client-only. Since this feature was broken before loader `0.15`, some mods may have implemented it incorrectly. See if there's an update for the mod in question, or try downgrading Fabric Loader.".to_string(),
+            severity: Severity::High,
+        });
+    }
+    None
+}
+
 pub fn polymc(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(Launcher::PolyMC) = &ctx.launcher {
         return Some(CheckReport {
@@ -176,9 +218,20 @@ pub fn optifabric(log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
         .is_some()
     {
         return Some(CheckReport {
-            title: "OptiFabric Detected".to_string(),
+            title: "OptiFabric detected".to_string(),
             description: "Optifine is known to cause problems with many mods on Fabric. If you're having strange issues or crashes, consider replacing it with some of the many available [alternatives](https://lambdaurora.dev/optifine_alternatives/).".to_string(),
             severity: Severity::High,
+        });
+    }
+    None
+}
+
+pub fn bclib(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if ctx.known_mods.iter().find(|m| m.0 .0 == "bclib").is_some() {
+        return Some(CheckReport {
+            title: "BCLib detected".to_string(),
+            description: "BCLib is known to cause issues with some mods. If you're experiencing crashes or other problems, consider trying without it.".to_string(),
+            severity: Severity::Medium,
         });
     }
     None

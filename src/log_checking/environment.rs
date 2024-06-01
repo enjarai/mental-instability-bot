@@ -253,9 +253,14 @@ pub fn get_environment_info(log: &str) -> EnvironmentContext {
             "owo",
             "<:owo:1246492160027656273> oωo (owo-lib)"
         ),
+        // Shitass mods lmao
         ScanMod(
             "optifabric",
             "<:optifabric:1246484303110606978> OptiFabric"
+        ),
+        ScanMod(
+            "bclib",
+            "<:bclib:1246585932379852901> BCLib"
         )
     );
 
