@@ -47,9 +47,9 @@ impl Display for Launcher {
     }
 }
 
-struct ScanMod(&'static str, &'static str);
+pub struct ScanMod(pub &'static str, pub &'static str);
 
-pub struct DiscoveredMod(String, String);
+pub struct DiscoveredMod(pub ScanMod, pub String);
 
 pub struct EnvironmentContext {
     pub launcher: Option<Launcher>,
@@ -73,13 +73,26 @@ impl Display for EnvironmentContext {
             write!(f, "\n")?;
             write!(f, "**Known Mods:**\n")?;
             for ele in &self.known_mods {
-                write!(f, "- {} `{}`\n", ele.0, ele.1)?;
+                write!(f, "- {} `{}`\n", ele.0.1, ele.1)?;
             }
         }
         Ok(())
     }
 }
 
+#[macro_export]
+macro_rules! grab_all {
+    ($log:expr,$($arg:expr),*) => {'a: {
+        $(
+            if let Some(cap) = Regex::new($arg).expect("Incorrect regex").captures($log) {
+                break 'a Some(cap);
+            }
+        )*
+        None
+    }};
+}
+
+#[macro_export]
 macro_rules! grab {
     ($log:expr,$($arg:expr),*) => {'a: {
         $(
@@ -98,9 +111,10 @@ macro_rules! known_mods {
             if let Some(mat) = grab!(
                 $log,
                 &format!(r"\n\s*- {} (\S+)", $arg.0),
-                &format!(r"\n\s*{}: .+ (\S+)", $arg.0)
+                &format!(r"\n\s*{}: .+ (\S+)", $arg.0),
+                &format!(r"mod '.+' \({}\) (\S+)", $arg.0)
             ) {
-                vec.push(DiscoveredMod($arg.1.to_string(), mat.expect("Regex issue what")));
+                vec.push(DiscoveredMod($arg, mat.expect("Regex issue what")));
             }
         )*
         vec
@@ -234,6 +248,14 @@ pub fn get_environment_info(log: &str) -> EnvironmentContext {
         ScanMod(
             "soundboard",
             "<:soundboard:1246447385362698280> Voice Chat Soundboard"
+        ),
+        ScanMod(
+            "owo",
+            "<:owo:1246492160027656273> oωo (owo-lib)"
+        ),
+        ScanMod(
+            "optifabric",
+            "<:optifabric:1246484303110606978> OptiFabric"
         )
     );
 
