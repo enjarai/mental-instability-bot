@@ -1,25 +1,6 @@
 use std::fmt::Display;
 
 use regex::Regex;
-use serde::Deserialize;
-use serenity::all::CreateEmbed;
-
-#[derive(Deserialize, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
-pub enum Severity {
-    None,
-    Medium,
-    High,
-}
-
-impl Severity {
-    pub fn get_color(self) -> u32 {
-        match self {
-            Severity::None => 0x0021_9ebc,
-            Severity::Medium => 0x00f7_7f00,
-            Severity::High => 0x00d6_2828,
-        }
-    }
-}
 
 pub enum ModLoader {
     Fabric(Option<String>),
@@ -45,18 +26,43 @@ impl Display for ModLoader {
     }
 }
 
+#[allow(dead_code)]
+pub enum Launcher {
+    Prism,
+    PolyMC, // :concern:
+    MultiMC,
+    Vanilla,
+    CurseForge,
+}
+
+impl Display for Launcher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Prism => write!(f, "<:prism:1246451647677468714>"),
+            Self::PolyMC => write!(f, "<:polymc:1246451649212448860>"),
+            Self::MultiMC => write!(f, "<:multimc:1246451644342865992>"),
+            Self::Vanilla => write!(f, "<:minecraft:1246451645441642496>"),
+            Self::CurseForge => write!(f, "<:curseforge:1246451646909911141>"),
+        }
+    }
+}
+
 struct ScanMod(&'static str, &'static str);
 
-struct DiscoveredMod(String, String);
+pub struct DiscoveredMod(String, String);
 
-struct EnvironmentContext {
-    mc_version: Option<String>,
-    loader: Option<ModLoader>,
-    known_mods: Vec<DiscoveredMod>,
+pub struct EnvironmentContext {
+    pub launcher: Option<Launcher>,
+    pub mc_version: Option<String>,
+    pub loader: Option<ModLoader>,
+    pub known_mods: Vec<DiscoveredMod>,
 }
 
 impl Display for EnvironmentContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(launcher) = &self.launcher {
+            write!(f, "**Launcher:** {}\n", launcher)?;
+        }
         if let Some(version) = &self.mc_version {
             write!(f, "**Minecraft:** `{}`\n", version)?;
         }
@@ -72,15 +78,6 @@ impl Display for EnvironmentContext {
         }
         Ok(())
     }
-}
-
-pub fn check_checks(embed: CreateEmbed, log: &str) -> CreateEmbed {
-    let ctx = get_environment_info(log);
-
-    let embed = embed
-        .color(Severity::None.get_color())
-        .description(format!("{ctx}"));
-    embed
 }
 
 macro_rules! grab {
@@ -110,7 +107,27 @@ macro_rules! known_mods {
     }};
 }
 
-fn get_environment_info(log: &str) -> EnvironmentContext {
+pub fn get_environment_info(log: &str) -> EnvironmentContext {
+    let launcher = if let Some(_) = grab!(
+        log,
+        r"Prism Launcher version:"
+    ) {
+        Some(Launcher::Prism)
+    } else if let Some(_) = grab!(
+        log,
+        r"PolyMC version:"
+    ) {
+        Some(Launcher::PolyMC)
+    } else if let Some(_) = grab!(
+        log,
+        r"MultiMC version:"
+    ) {
+        Some(Launcher::MultiMC)
+    } else {
+        None
+    };
+
+
     let mut loader = None;
 
     if let Some(fabric_version) = grab!(
@@ -209,10 +226,19 @@ fn get_environment_info(log: &str) -> EnvironmentContext {
         ScanMod(
             "cicada",
             "<:cicada:1246197518807863367> CICADA"
+        ),
+        ScanMod(
+            "elytratrims",
+            "<:elytratrims:1246408624423702558> Elytra Trims"
+        ),
+        ScanMod(
+            "soundboard",
+            "<:soundboard:1246447385362698280> Voice Chat Soundboard"
         )
     );
 
     EnvironmentContext {
+        launcher,
         mc_version,
         loader,
         known_mods,

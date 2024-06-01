@@ -17,7 +17,7 @@ use serenity::client::Context;
 use crate::{
     constants::{MCLOGS_API_BASE_URL, MCLOGS_BASE_URL},
     get_config,
-    log_checking::check_checks,
+    log_checking::check_logs,
 };
 
 #[derive(Deserialize, Clone)]
@@ -71,7 +71,7 @@ pub(crate) async fn check_for_logs(
                     let mut embed = CreateEmbed::new()
                         .title(title_format(t, name));
                     
-                    embed = check_checks(embed, log);
+                    embed = check_logs(embed, log);
 
                     embed
                 })
