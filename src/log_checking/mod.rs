@@ -36,7 +36,11 @@ pub fn check_logs(log: &str, name: &str, t: &log_upload::LogType) -> CreateEmbed
         ));
 
     for ele in &checks {
-        embed = embed.field(format!("- {}", &ele.title), &ele.description, false);
+        embed = embed.field(
+            format!("{} {}", ele.severity.get_emoji(), &ele.title),
+            &ele.description,
+            false,
+        );
     }
 
     embed

@@ -112,7 +112,8 @@ macro_rules! known_mods {
                 $log,
                 &format!(r"\n\s*- {} (\S+)", $arg.0),
                 &format!(r"\n\s*{}: .+ (\S+)", $arg.0),
-                &format!(r"mod '.+' \({}\) (\S+)", $arg.0)
+                &format!(r"mod '.+' \({}\) (\S+)", $arg.0),
+                &format!(r"\| \s*\w+ \| [^|]* \| {}\s* \| (\S+)\s* \| [^|]* \| \w+\s* \| [^|]* \| [^|]* \|", $arg.0)
             ) {
                 vec.push(DiscoveredMod($arg, mat.expect("Regex issue what")));
             }
@@ -188,6 +189,14 @@ pub fn get_environment_info(log: &str) -> EnvironmentContext {
         ScanMod(
             "fabric-api",
             "<:fabric:1246103308842700831> Fabric API"
+        ),
+        ScanMod(
+            "quilt_base",
+            "<:quilt:1246170627652718653> Quilt Standard Libraries"
+        ),
+        ScanMod(
+            "quilted_fabric_api",
+            "<:quilt:1246170627652718653> Quilted Fabric API"
         ),
         ScanMod(
             "do_a_barrel_roll",

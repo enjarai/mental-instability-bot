@@ -42,8 +42,8 @@ pub(crate) enum LogType {
 impl LogType {
     pub(crate) fn title_format(&self, name: &str, took: &Duration) -> String {
         match self {
-            Self::Uploaded => format!("Uploaded {name} in {took:?}"),
-            Self::Downloaded => format!("Scanned {name} in {took:?}"),
+            Self::Uploaded => format!("Uploaded {name} in {}ms", took.as_millis()),
+            Self::Downloaded => format!("Scanned {name} in {}ms", took.as_millis()),
         }
     }
 }

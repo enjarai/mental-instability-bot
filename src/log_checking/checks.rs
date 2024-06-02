@@ -1,7 +1,8 @@
 use crate::{grab, grab_all};
 
-use super::environment::{EnvironmentContext, Launcher};
+use super::environment::{EnvironmentContext, Launcher, ModLoader};
 use regex::Regex;
+use std::fmt::Write;
 
 #[allow(dead_code)]
 #[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
@@ -19,6 +20,14 @@ impl Severity {
             Severity::High => 0x00d6_2828,
         }
     }
+
+    pub fn get_emoji(&self) -> &'static str {
+        match self {
+            Severity::None => "<:severity_none:1246879605399228449>",
+            Severity::Medium => "<:severity_medium:1246879606993190972>",
+            Severity::High => "<:severity_high:1246879607869935678>",
+        }
+    }
 }
 
 pub struct CheckReport {
@@ -32,8 +41,10 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         crash_report_analysis,
         dependency_generic,
         crash_generic,
+        class_missing_generic,
         java,
         missing_field,
+        quilt,
         polymc,
         optifabric,
         bclib,
@@ -90,7 +101,7 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
         let mod_id = captures.get(2).expect("Regex err 2").as_str();
         return Some(CheckReport {
             title: "Mixin inject failed".to_string(),
-            description: format!("Mixin `{mixin}` from mod `{mod_id}` has failed. It is possible that `{mod_id}` is not compatible with this Minecraft version, consider double-checking its version."),
+            description: format!("Mixin `{mixin}` from mod `{mod_id}` has failed to apply. It is possible that `{mod_id}` is not compatible with this Minecraft version, consider double-checking its version."),
             severity: Severity::High,
         });
     }
@@ -114,6 +125,29 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
             title: "Entrypoint error".to_string(),
             description: format!("The mod `{mod_id}` has encountered an error in it's entrypoint, though it may not have caused it. Further investigation is required."),
             severity: Severity::High,
+        });
+    }
+    None
+}
+
+pub fn class_missing_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    let mut packages = Regex::new(r"java\.lang\.ClassNotFoundException: (\S+)\.\w+")
+        .expect("Regex err")
+        .captures_iter(log)
+        .map(|cap| cap.get(1).expect("Reger err").as_str())
+        .collect::<Vec<&str>>();
+    if !packages.is_empty() {
+        packages.dedup();
+
+        let mut description = "Classes from the packages below failed to load, this may be an indicator of missing dependencies or outdated mods.\n".to_string();
+        for ele in packages {
+            let _ = write!(description, "- `{}`\n", ele);
+        }
+
+        return Some(CheckReport {
+            title: "Missing classes".to_string(),
+            description,
+            severity: Severity::Medium,
         });
     }
     None
@@ -193,10 +227,21 @@ pub fn missing_field(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
     None
 }
 
+pub fn quilt(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(ModLoader::Quilt(_)) = &ctx.loader {
+        return Some(CheckReport {
+            title: "Quilt detected".to_string(),
+            description: "Many mod developers may not officially support Quilt. Consider switching to Fabric if you aren't using any Quilt-specific mods.".to_string(),
+            severity: Severity::None,
+        });
+    }
+    None
+}
+
 pub fn polymc(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(Launcher::PolyMC) = &ctx.launcher {
         return Some(CheckReport {
-            title: "PolyMC Detected".to_string(),
+            title: "PolyMC detected".to_string(),
             description: "PolyMC is an outdated launcher maintained by a queerphobic team. Consider switching to [Prism Launcher](https://prismlauncher.org/), a fork with more features and better support.".to_string(),
             severity: Severity::Medium,
         });
