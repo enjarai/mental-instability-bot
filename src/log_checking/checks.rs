@@ -41,6 +41,7 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         crash_report_analysis,
         dependency_generic,
         crash_generic,
+        mixin_conflicts,
         class_missing_generic,
         java,
         missing_field,
@@ -65,7 +66,7 @@ pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<Che
         return Some(CheckReport {
             title: "Crash report analysis".to_string(),
             description: format!("Context: `{description}`\n```\n{error}\n```"),
-            severity: Severity::None,
+            severity: Severity::High,
         });
     }
     None
@@ -106,6 +107,19 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
         });
     }
 
+    if let Some(captures) = grab_all!(
+        log,
+        r"InvalidInjectionException: \S+ on \S+ with priority \w+ cannot inject into \S+ merged by (\S+)\.\w+\.\w+ with priority \w+ \[PREINJECT Applicator Phase \-> \S+\.json:\S+ from mod (\S+) \->"
+    ) {
+        let mod1 = captures.get(1).expect("Regex err").as_str();
+        let mod2 = captures.get(2).expect("Regex err 2").as_str();
+        return Some(CheckReport {
+            title: "Mixin conflict".to_string(),
+            description: format!("A mixin from the mod `{mod2}` collided with one from `{mod1}`, these mods may be incompatible."),
+            severity: Severity::High,
+        });
+    }
+
     if let Some(Some(mod_id)) = grab!(
         log,
         r"MixinApplyError: Mixin \[\S+\.mixins\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.mixins\.json\] FAILED during \S+"
@@ -125,6 +139,34 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
             title: "Entrypoint error".to_string(),
             description: format!("The mod `{mod_id}` has encountered an error in it's entrypoint, though it may not have caused it. Further investigation is required."),
             severity: Severity::High,
+        });
+    }
+    None
+}
+
+pub fn mixin_conflicts(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    let regex_redirect = Regex::new(r"@Redirect conflict\. Skipping (?:#redirector:)?\S+\.json:\S+ from mod (\S+)\->@Redirect::\S+ with priority \w+, already redirected by \S+\.json:\S+ from mod (\S+)->@Redirect::\S+ with priority \w+").expect("Regex err");
+    let mut conflicts = regex_redirect
+        .captures_iter(log)
+        .map(|c| {
+            (
+                c.get(1).expect("Regex err").as_str(),
+                c.get(2).expect("Regex err 2").as_str(),
+            )
+        })
+        .collect::<Vec<(&str, &str)>>();
+    if !conflicts.is_empty() {
+        conflicts.dedup();
+
+        let mut description = "Mixins from the mods below are conflicting, this may cause unintentional behaviour or broken features.\n".to_string();
+        for ele in conflicts {
+            let _ = write!(description, "- `{}` <-> `{}`\n", ele.0, ele.1);
+        }
+
+        return Some(CheckReport {
+            title: "Mixin conflicts".to_string(),
+            description,
+            severity: Severity::Medium,
         });
     }
     None
