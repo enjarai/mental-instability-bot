@@ -122,7 +122,8 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
 
     if let Some(Some(mod_id)) = grab!(
         log,
-        r"MixinApplyError: Mixin \[\S+\.mixins\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.mixins\.json\] FAILED during \S+"
+        r"MixinApplyError: Mixin \[\S+\.mixins\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.mixins\.json\] FAILED during \S+",
+        r"InvalidInjectionException: .+ from mod ([\w\(\)-]+)\s?\->.+"
     ) {
         return Some(CheckReport {
             title: "Mixin error".to_string(),
