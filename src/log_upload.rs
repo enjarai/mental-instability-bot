@@ -1,6 +1,7 @@
 use std::{
     io::{Cursor, ErrorKind, Read},
     path::Path,
+    time::Duration,
 };
 
 use anyhow::Result;
@@ -33,15 +34,17 @@ struct LogUpload<'a> {
 
 type Log = (String, LogType, String, String);
 
-enum LogType {
+pub(crate) enum LogType {
     Uploaded,
     Downloaded,
 }
 
-fn title_format(log_type: &LogType, name: &str) -> String {
-    match log_type {
-        LogType::Uploaded => format!("Uploaded {name}"),
-        LogType::Downloaded => format!("Scanned {name}"),
+impl LogType {
+    pub(crate) fn title_format(&self, name: &str, took: &Duration) -> String {
+        match self {
+            Self::Uploaded => format!("Uploaded {name} in {took:?}"),
+            Self::Downloaded => format!("Scanned {name} in {took:?}"),
+        }
     }
 }
 
@@ -67,13 +70,7 @@ pub(crate) async fn check_for_logs(
         let edit = (
             "",
             logs.iter()
-                .map(|(name, t, _, log)| {
-                    let mut embed = CreateEmbed::new().title(title_format(t, name));
-
-                    embed = check_logs(embed, log);
-
-                    embed
-                })
+                .map(|(name, t, _, log)| check_logs(log, name, t))
                 .collect(),
             vec![CreateActionRow::Buttons(
                 logs.iter()
