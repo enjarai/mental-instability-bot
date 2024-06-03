@@ -44,6 +44,7 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         mixin_conflicts,
         class_missing_generic,
         java,
+        jdk,
         missing_field,
         quilt,
         polymc,
