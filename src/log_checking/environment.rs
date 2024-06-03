@@ -80,7 +80,11 @@ impl Display for EnvironmentContext<'_> {
             for ele in &self.known_mods {
                 write!(f, "- {} `{}`\n", ele.0 .1, ele.1 .1)?;
             }
-            write!(f, "- and {} more...\n", self.discovered_mods.len() - self.known_mods.len())?;
+            write!(
+                f,
+                "- and {} more...\n",
+                self.discovered_mods.len() - self.known_mods.len()
+            )?;
         }
         Ok(())
     }
@@ -249,7 +253,18 @@ pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
             "soundboard",
             "<:soundboard:1246447385362698280> Voice Chat Soundboard",
         ),
-        ScanMod("owo", "<:owo:1246492160027656273> oωo (owo-lib)"),
+        ScanMod("particular", "<:particular:1247196807688228876> Particular"),
+        ScanMod(
+            "inventory_sort",
+            "<:chaiinventorysorter:1247198105745494086> Chai's Inventory Sorter",
+        ),
+        ScanMod("neruina", "<:neruina:1247198104017571900> Neruina"),
+        ScanMod(
+            "midnightlib",
+            "<:midnightlib:1247198101018513569> MidnightLib",
+        ),
+        ScanMod("zauber", "<:zauber:1247198102230798516> Zauber"),
+        ScanMod("owo", "<:owo:1246492160027656273> oωo"),
         // Shitass mods lmao
         ScanMod("optifabric", "<:optifabric:1246484303110606978> OptiFabric"),
         ScanMod("bclib", "<:bclib:1246585932379852901> BCLib"),
