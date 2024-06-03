@@ -16,7 +16,7 @@ use serenity::{
 use serenity::client::Context;
 
 use crate::{
-    constants::{MCLOGS_API_BASE_URL, MCLOGS_BASE_URL},
+    constants::{MCLOGS_API_BASE_URL, PASTE_GG_API_BASE_URL},
     get_config,
     log_checking::check_logs,
 };
@@ -133,21 +133,34 @@ async fn upload_log_files(attachments: &[&Attachment]) -> Result<Vec<Log>> {
 async fn check_pre_uploaded_logs(message_content: &str) -> Result<Vec<Log>> {
     let mut responses = vec![];
 
-    for id in find_mclogs_urls(message_content) {
+    for (url, id) in find_urls(r"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)", message_content) {
         let log_data = download(&id).await?;
-        let url = format!("{MCLOGS_BASE_URL}/{id}");
         responses.push((id, LogType::Downloaded, url, log_data));
+    }
+
+    for (url, id) in find_urls(
+        r"https:\/\/paste\.gg\/p\/\w+\/([a-zA-Z0-9]+)",
+        message_content,
+    ) {
+        if let Some(log_data) = download_paste_gg(&id).await? {
+            responses.push((id, LogType::Downloaded, url, log_data));
+        }
     }
 
     Ok(responses)
 }
 
-fn find_mclogs_urls(message_content: &str) -> Vec<String> {
-    let regex = Regex::new(r"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)").unwrap();
+fn find_urls(regex: &str, message_content: &str) -> Vec<(String, String)> {
+    let regex = Regex::new(regex).unwrap();
 
     regex
         .captures_iter(message_content)
-        .map(|caps| caps.get(1).expect("Regex err").as_str().to_string())
+        .map(|caps| {
+            (
+                caps.get(0).expect("Regex err").as_str().to_string(),
+                caps.get(1).expect("Regex err").as_str().to_string(),
+            )
+        })
         .collect()
 }
 
@@ -173,4 +186,41 @@ async fn download(id: &str) -> Result<String> {
         .await?
         .text()
         .await?)
+}
+
+#[derive(Deserialize)]
+struct GGResponse {
+    result: GGResult,
+}
+
+#[derive(Deserialize)]
+struct GGResult {
+    files: Vec<GGFile>,
+}
+
+#[derive(Deserialize)]
+struct GGFile {
+    content: GGContent,
+}
+
+#[derive(Deserialize)]
+struct GGContent {
+    value: String,
+}
+
+async fn download_paste_gg(id: &str) -> Result<Option<String>> {
+    let client: reqwest::Client = reqwest::Client::new();
+
+    let mut response = client
+        .get(format!("{PASTE_GG_API_BASE_URL}/pastes/{id}?full=true"))
+        .send()
+        .await?
+        .json::<GGResponse>()
+        .await?;
+
+    if response.result.files.len() == 0 {
+        return Ok(None);
+    }
+
+    Ok(Some(response.result.files.remove(0).content.value))
 }

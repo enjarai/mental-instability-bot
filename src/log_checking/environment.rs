@@ -74,15 +74,13 @@ impl Display for EnvironmentContext<'_> {
         if let Some(loader) = &self.loader {
             write!(f, "**Loader:** {}\n", loader)?;
         }
-        if !&self.discovered_mods.is_empty() {
-            write!(f, "**Mods:** {}\n", &self.discovered_mods.len())?;
-        }
         if !self.known_mods.is_empty() {
             write!(f, "\n")?;
-            write!(f, "**Known Mods:**\n")?;
+            write!(f, "**Detected Mods:**\n")?;
             for ele in &self.known_mods {
                 write!(f, "- {} `{}`\n", ele.0 .1, ele.1 .1)?;
             }
+            write!(f, "- and {} more...\n", self.discovered_mods.len() - self.known_mods.len())?;
         }
         Ok(())
     }
