@@ -268,6 +268,7 @@ pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
         // Shitass mods lmao
         ScanMod("optifabric", "<:optifabric:1246484303110606978> OptiFabric"),
         ScanMod("bclib", "<:bclib:1246585932379852901> BCLib"),
+        ScanMod("feather", "<:feather:1247213091591028756> Feather Client"),
     ];
 
     let known_mods = discovered_mods

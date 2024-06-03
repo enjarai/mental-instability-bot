@@ -2,7 +2,7 @@ use crate::{grab, grab_all};
 
 use super::environment::{EnvironmentContext, Launcher, ModLoader};
 use regex::Regex;
-use std::fmt::Write;
+use std::{collections::HashSet, fmt::Write};
 
 #[allow(dead_code)]
 #[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
@@ -49,6 +49,7 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         polymc,
         optifabric,
         bclib,
+        feather,
         indium,
     ]
     .iter()
@@ -93,6 +94,17 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
 }
 
 pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(Some(mod_id)) = grab!(
+        log,
+        r"RuntimeException: Error creating Mixin config \S+\.json for mod (\S+)"
+    ) {
+        return Some(CheckReport {
+            title: "Invalid mixin config".to_string(),
+            description: format!("The mod `{mod_id}` is providing an invalid mixin config and cannot load in its current state, consider removing or updating it."),
+            severity: Severity::High,
+        });
+    }
+
     if let Some(captures) = grab_all!(
         log,
         r"InvalidInjectionException: Critical injection failure: @Inject annotation on \S+ could not find any targets matching '.+' in \S+\. Using refmap \S+ \[PREINJECT Applicator Phase \-> \S+:(\w+) from mod (\w+)",
@@ -147,7 +159,7 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
 
 pub fn mixin_conflicts(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     let regex_redirect = Regex::new(r"@Redirect conflict\. Skipping (?:#redirector:)?\S+\.json:\S+ from mod (\S+)\->@Redirect::\S+ with priority \w+, already redirected by \S+\.json:\S+ from mod (\S+)->@Redirect::\S+ with priority \w+").expect("Regex err");
-    let mut conflicts = regex_redirect
+    let conflicts = regex_redirect
         .captures_iter(log)
         .map(|c| {
             (
@@ -155,10 +167,8 @@ pub fn mixin_conflicts(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepo
                 c.get(2).expect("Regex err 2").as_str(),
             )
         })
-        .collect::<Vec<(&str, &str)>>();
+        .collect::<HashSet<(&str, &str)>>();
     if !conflicts.is_empty() {
-        conflicts.dedup();
-
         let mut description = "Mixins from the mods below are conflicting, this may cause unintentional behaviour or broken features.\n".to_string();
         for ele in conflicts {
             let _ = write!(description, "- `{}` <-> `{}`\n", ele.0, ele.1);
@@ -174,14 +184,12 @@ pub fn mixin_conflicts(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepo
 }
 
 pub fn class_missing_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
-    let mut packages = Regex::new(r"java\.lang\.ClassNotFoundException: (\S+)\.\w+")
+    let packages = Regex::new(r"java\.lang\.ClassNotFoundException: (\S+)\.\w+")
         .expect("Regex err")
         .captures_iter(log)
         .map(|cap| cap.get(1).expect("Reger err").as_str())
-        .collect::<Vec<&str>>();
+        .collect::<HashSet<&str>>();
     if !packages.is_empty() {
-        packages.dedup();
-
         let mut description = "Classes from the packages below failed to load, this may be an indicator of missing dependencies or outdated mods.\n".to_string();
         for ele in packages {
             let _ = write!(description, "- `{}`\n", ele);
@@ -319,6 +327,17 @@ pub fn bclib(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
         return Some(CheckReport {
             title: "BCLib detected".to_string(),
             description: "BCLib is known to cause issues with some mods. If you're experiencing crashes or other problems, consider trying without it.".to_string(),
+            severity: Severity::Medium,
+        });
+    }
+    None
+}
+
+pub fn feather(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if ctx.known_mods.iter().find(|m| m.0 .0 == "feather").is_some() {
+        return Some(CheckReport {
+            title: "Feather Client detected".to_string(),
+            description: "Feather Client is known to cause issues with some mods. If you're experiencing crashes or other problems, consider trying without it.".to_string(),
             severity: Severity::Medium,
         });
     }
