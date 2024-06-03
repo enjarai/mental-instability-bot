@@ -47,18 +47,23 @@ impl Display for Launcher {
     }
 }
 
+#[derive(Clone)]
 pub struct ScanMod(pub &'static str, pub &'static str);
 
-pub struct DiscoveredMod(pub ScanMod, pub String);
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+pub struct DiscoveredMod<'a>(pub &'a str, pub &'a str);
 
-pub struct EnvironmentContext {
+pub struct KnownMod<'a>(pub ScanMod, pub DiscoveredMod<'a>);
+
+pub struct EnvironmentContext<'a> {
     pub launcher: Option<Launcher>,
     pub mc_version: Option<String>,
     pub loader: Option<ModLoader>,
-    pub known_mods: Vec<DiscoveredMod>,
+    pub discovered_mods: Vec<DiscoveredMod<'a>>,
+    pub known_mods: Vec<KnownMod<'a>>,
 }
 
-impl Display for EnvironmentContext {
+impl Display for EnvironmentContext<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(launcher) = &self.launcher {
             write!(f, "**Launcher:** {}\n", launcher)?;
@@ -69,11 +74,14 @@ impl Display for EnvironmentContext {
         if let Some(loader) = &self.loader {
             write!(f, "**Loader:** {}\n", loader)?;
         }
+        if !&self.discovered_mods.is_empty() {
+            write!(f, "**Mods:** {}\n", &self.discovered_mods.len())?;
+        }
         if !self.known_mods.is_empty() {
             write!(f, "\n")?;
             write!(f, "**Known Mods:**\n")?;
             for ele in &self.known_mods {
-                write!(f, "- {} `{}`\n", ele.0.1, ele.1)?;
+                write!(f, "- {} `{}`\n", ele.0 .1, ele.1 .1)?;
             }
         }
         Ok(())
@@ -104,44 +112,16 @@ macro_rules! grab {
     }};
 }
 
-macro_rules! known_mods {
-    ($log:expr,$($arg:expr),*) => {{
-        let mut vec = vec![];
-        $(
-            if let Some(mat) = grab!(
-                $log,
-                &format!(r"\n\s*- {} (\S+)", $arg.0),
-                &format!(r"\n\s*{}: .+ (\S+)", $arg.0),
-                &format!(r"mod '.+' \({}\) (\S+)", $arg.0),
-                &format!(r"\| \s*\w+ \| [^|]* \| {}\s* \| (\S+)\s* \| [^|]* \| \w+\s* \| [^|]* \| [^|]* \|", $arg.0)
-            ) {
-                vec.push(DiscoveredMod($arg, mat.expect("Regex issue what")));
-            }
-        )*
-        vec
-    }};
-}
-
-pub fn get_environment_info(log: &str) -> EnvironmentContext {
-    let launcher = if let Some(_) = grab!(
-        log,
-        r"Prism Launcher version:"
-    ) {
+pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
+    let launcher = if let Some(_) = grab!(log, r"Prism Launcher version:") {
         Some(Launcher::Prism)
-    } else if let Some(_) = grab!(
-        log,
-        r"PolyMC version:"
-    ) {
+    } else if let Some(_) = grab!(log, r"PolyMC version:") {
         Some(Launcher::PolyMC)
-    } else if let Some(_) = grab!(
-        log,
-        r"MultiMC version:"
-    ) {
+    } else if let Some(_) = grab!(log, r"MultiMC version:") {
         Some(Launcher::MultiMC)
     } else {
         None
     };
-
 
     let mut loader = None;
 
@@ -180,103 +160,118 @@ pub fn get_environment_info(log: &str) -> EnvironmentContext {
     )
     .map(|o| o.expect("Regex error!!!"));
 
-    let known_mods = known_mods!(
-        log,
-        ScanMod(
-            "fabric",
-            "<:fabric:1246103308842700831> Fabric API"
+    let mut discovered_mods = [
+        Regex::new(r"\n\s*- (\S+) (\S+)"),
+        Regex::new(r"\n\s*(\S+): .+ (\S+)"),
+        Regex::new(r"mod '.+' \((\S+)\) (\S+)"),
+        Regex::new(
+            r"\| \s*\w+ \| [^|]* \| (\S+)\s* \| (\S+)\s* \| [^|]* \| \w+\s* \| [^|]* \| [^|]* \|",
         ),
-        ScanMod(
-            "fabric-api",
-            "<:fabric:1246103308842700831> Fabric API"
-        ),
+    ]
+    .into_iter()
+    .flat_map(|r| {
+        r.expect("brombeere")
+            .captures_iter(log)
+            .map(|cap| {
+                let mod_id = cap.get(1).expect("Regex err").as_str();
+                let mod_version = cap.get(2).expect("Regex err 2").as_str();
+                DiscoveredMod(mod_id, mod_version)
+            })
+            .collect::<Vec<_>>()
+    })
+    .collect::<Vec<_>>();
+
+    discovered_mods.dedup();
+
+    let scan_mods = vec![
+        ScanMod("fabric", "<:fabric:1246103308842700831> Fabric API"),
+        ScanMod("fabric-api", "<:fabric:1246103308842700831> Fabric API"),
         ScanMod(
             "quilt_base",
-            "<:quilt:1246170627652718653> Quilt Standard Libraries"
+            "<:quilt:1246170627652718653> Quilt Standard Libraries",
         ),
         ScanMod(
             "quilted_fabric_api",
-            "<:quilt:1246170627652718653> Quilted Fabric API"
+            "<:quilt:1246170627652718653> Quilted Fabric API",
         ),
         ScanMod(
             "do_a_barrel_roll",
-            "<:doabarrelroll:1107712867823792210> Do a Barrel Roll"
+            "<:doabarrelroll:1107712867823792210> Do a Barrel Roll",
         ),
         ScanMod(
             "showmeyourskin",
-            "<:showmeyourskin:1107713046987686009> Show Me Your Skin"
+            "<:showmeyourskin:1107713046987686009> Show Me Your Skin",
         ),
         ScanMod(
             "rolling_down_in_the_deep",
-            "<:rollingdowninthedeep:1246194315580145734> Rolling Down in the Deep"
+            "<:rollingdowninthedeep:1246194315580145734> Rolling Down in the Deep",
         ),
         ScanMod(
             "mini_tardis",
-            "<:minitardis:1246194819739549707> Mini Tardis"
+            "<:minitardis:1246194819739549707> Mini Tardis",
         ),
         ScanMod(
             "skinshuffle",
-            "<:skinshuffle:1120649582502756392> SkinShuffle"
+            "<:skinshuffle:1120649582502756392> SkinShuffle",
         ),
         ScanMod(
             "omnihopper",
-            "<:omnihopper:1107713581446873158> Omni-Hopper"
+            "<:omnihopper:1107713581446873158> Omni-Hopper",
         ),
         ScanMod(
             "recursiveresources",
-            "<:recursiveresources:1107713344355442799> Recursive Resources"
+            "<:recursiveresources:1107713344355442799> Recursive Resources",
         ),
         ScanMod(
             "shared-resources",
-            "<:sharedresources:1107713221063872532> Shared Resources"
+            "<:sharedresources:1107713221063872532> Shared Resources",
         ),
         ScanMod(
             "clientpaintings",
-            "<:clientpaintings:1107713678712774778> Client Paintings"
+            "<:clientpaintings:1107713678712774778> Client Paintings",
         ),
         ScanMod(
             "moderate-loading-screen",
-            "<:moderateloadingscreen:1107713920271122462> Mod-erate Loading Screen"
+            "<:moderateloadingscreen:1107713920271122462> Mod-erate Loading Screen",
         ),
         ScanMod(
             "blahaj-totem",
-            "<:shork:1172685466676502559> Blåhaj of Undying"
+            "<:shork:1172685466676502559> Blåhaj of Undying",
         ),
         ScanMod(
             "restart_detector",
-            "<:restartdetector:1172685600000847922> Restart Detector"
+            "<:restartdetector:1172685600000847922> Restart Detector",
         ),
-        ScanMod(
-            "cicada",
-            "<:cicada:1246197518807863367> CICADA"
-        ),
+        ScanMod("cicada", "<:cicada:1246197518807863367> CICADA"),
         ScanMod(
             "elytratrims",
-            "<:elytratrims:1246408624423702558> Elytra Trims"
+            "<:elytratrims:1246408624423702558> Elytra Trims",
         ),
         ScanMod(
             "soundboard",
-            "<:soundboard:1246447385362698280> Voice Chat Soundboard"
+            "<:soundboard:1246447385362698280> Voice Chat Soundboard",
         ),
-        ScanMod(
-            "owo",
-            "<:owo:1246492160027656273> oωo (owo-lib)"
-        ),
+        ScanMod("owo", "<:owo:1246492160027656273> oωo (owo-lib)"),
         // Shitass mods lmao
-        ScanMod(
-            "optifabric",
-            "<:optifabric:1246484303110606978> OptiFabric"
-        ),
-        ScanMod(
-            "bclib",
-            "<:bclib:1246585932379852901> BCLib"
-        )
-    );
+        ScanMod("optifabric", "<:optifabric:1246484303110606978> OptiFabric"),
+        ScanMod("bclib", "<:bclib:1246585932379852901> BCLib"),
+    ];
+
+    let known_mods = discovered_mods
+        .iter()
+        .filter_map(|d| {
+            scan_mods
+                .iter()
+                .find(|s| s.0 == d.0)
+                .map(|s| KnownMod(s.clone(), d.clone()))
+        })
+        .collect();
 
     EnvironmentContext {
         launcher,
         mc_version,
         loader,
+        discovered_mods,
         known_mods,
     }
 }

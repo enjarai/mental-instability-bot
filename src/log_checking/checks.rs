@@ -43,6 +43,7 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         crash_generic,
         mixin_conflicts,
         class_missing_generic,
+        mod_game_versions,
         java,
         missing_field,
         quilt,
@@ -192,6 +193,50 @@ pub fn class_missing_generic(log: &str, _ctx: &EnvironmentContext) -> Option<Che
             description,
             severity: Severity::Medium,
         });
+    }
+    None
+}
+
+pub fn get_compatible_versions<'a>(version: &'a str) -> Vec<&'a str> {
+    match version {
+        "1.19" | "1.19.1" | "1.19.2" => vec!["1.19", "1.19.1", "1.19.2"],
+        "1.20" | "1.20.1" => vec!["1.20", "1.20.1"],
+        "1.20.3" | "1.20.4" => vec!["1.20.3", "1.20.4"],
+        "1.20.5" | "1.20.6" => vec!["1.20.5", "1.20.6"],
+        _ => vec![version],
+    }
+}
+
+pub fn mod_game_versions(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(mc_version) = &ctx.mc_version {
+        let compatible = get_compatible_versions(mc_version);
+        let mismatches = ctx
+            .discovered_mods
+            .iter()
+            .filter(|m| {
+                let split = m.1.split('+');
+                if let Some(supported_version) = split.skip(1).last() {
+                    println!("{}", supported_version);
+                    return compatible.contains(&supported_version);
+                }
+                false
+            })
+            .collect::<Vec<_>>();
+
+        println!("{mismatches:?}");
+
+        if !mismatches.is_empty() {
+            let mut description = "The mods below might not be compatible with the used Minecraft version. If you're having issues, consider updating them when possible.\n".to_string();
+            for ele in mismatches {
+                let _ = write!(description, "- {} `{}`\n", ele.0, ele.1);
+            }
+
+            return Some(CheckReport {
+                title: "Potentially unsupported versions".to_string(),
+                description,
+                severity: Severity::Medium,
+            });
+        }
     }
     None
 }
