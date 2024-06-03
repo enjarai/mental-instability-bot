@@ -265,7 +265,28 @@ pub fn java(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     None
 }
 
-// java.lang.NoSuchFieldError
+pub fn jdk(log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if grab!(
+        log,
+        r"IllegalStateException: No compatible attachment provider is available"
+    )
+    .is_some()
+    {
+        return Some(CheckReport {
+            title: "JRE used instead of JDK".to_string(),
+            description: if let Some(java) = ctx.discovered_mods.iter().find(|m| m.0 == "java") {
+                format!(
+                    "A mod or Minecraft itself requires the use of a JDK type distribution of Java instead of the used JRE type. You may have to [download](https://adoptium.net/temurin/releases/?version={}) a JDK type Java version and/or select it in your launcher.",
+                    java.1
+                )
+            } else {
+                "A mod or Minecraft itself requires the use of a JDK type distribution of Java instead of the used JRE type. You may have to [download](https://adoptium.net/temurin/releases/) a JDK type Java version and/or select it in your launcher.".to_string()
+            },
+            severity: Severity::High,
+        });
+    }
+    None
+}
 
 pub fn missing_field(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     if grab!(log, r"java\.lang\.NoSuchFieldError").is_some() {
@@ -334,7 +355,12 @@ pub fn bclib(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
 }
 
 pub fn feather(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if ctx.known_mods.iter().find(|m| m.0 .0 == "feather").is_some() {
+    if ctx
+        .known_mods
+        .iter()
+        .find(|m| m.0 .0 == "feather")
+        .is_some()
+    {
         return Some(CheckReport {
             title: "Feather Client detected".to_string(),
             description: "Feather Client is known to cause issues with some mods. If you're experiencing crashes or other problems, consider trying without it.".to_string(),
