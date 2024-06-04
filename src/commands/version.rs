@@ -5,9 +5,9 @@ use super::{Context, Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct YarnVersion {
-    game_version: Option<String>,
-    version: Option<String>,
+pub struct YarnVersion {
+    pub game_version: Option<String>,
+    pub version: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -30,24 +30,7 @@ pub(crate) async fn version(
     ctx: Context<'_>,
     #[description = "Get the latest Fabric versions for the given game version"] version: String,
 ) -> Result<(), Error> {
-    let mut yarn_response: &str = &reqwest::get(format!(
-        "{}/versions/yarn/{}?limit=1",
-        crate::constants::FABRIC_META_URL,
-        version
-    ))
-    .await?
-    .text()
-    .await?;
-    if let Some(stripped) = yarn_response.strip_prefix('[') {
-        yarn_response = stripped;
-    }
-    if let Some(stripped) = yarn_response.strip_suffix(']') {
-        yarn_response = stripped;
-    }
-    if yarn_response.trim().is_empty() {
-        yarn_response = "{}";
-    }
-    let yarn_version: YarnVersion = serde_json::from_str(yarn_response)?;
+    let yarn_version = get_yarn_version(&version).await?;
 
     let mut loader_response: &str = &reqwest::get(format!(
         "{}/versions/loader/{}?limit=1",
@@ -88,4 +71,25 @@ loader_version={}```",
     .await?;
 
     Ok(())
+}
+
+pub async fn get_yarn_version(mc_version: &str) -> Result<YarnVersion, Error> {
+    let mut yarn_response: &str = &reqwest::get(format!(
+        "{}/versions/yarn/{}?limit=1",
+        crate::constants::FABRIC_META_URL,
+        mc_version
+    ))
+    .await?
+    .text()
+    .await?;
+    if let Some(stripped) = yarn_response.strip_prefix('[') {
+        yarn_response = stripped;
+    }
+    if let Some(stripped) = yarn_response.strip_suffix(']') {
+        yarn_response = stripped;
+    }
+    if yarn_response.trim().is_empty() {
+        yarn_response = "{}";
+    }
+    Ok(serde_json::from_str(yarn_response)?)
 }

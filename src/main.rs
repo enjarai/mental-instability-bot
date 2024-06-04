@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 #![feature(async_fn_traits)]
+#![feature(async_closure)]
 
 mod commands;
 mod config;
@@ -64,6 +65,7 @@ async fn main() {
         commands::version::version(),
         commands::check_logs::check_logs(),
         commands::modversion::modversion(),
+        commands::update_deps::update_deps(),
     ];
     commands.append(&mut commands::tags::load_tag_commands());
 
