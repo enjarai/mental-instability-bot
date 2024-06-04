@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{collections::HashSet, fmt::Display, hash::Hash};
 
 use regex::Regex;
 
@@ -50,8 +50,20 @@ impl Display for Launcher {
 #[derive(Clone)]
 pub struct ScanMod(pub &'static str, pub &'static str);
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(Eq, Clone, Debug)]
 pub struct DiscoveredMod<'a>(pub &'a str, pub &'a str);
+
+impl PartialEq for DiscoveredMod<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Hash for DiscoveredMod<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
 
 pub struct KnownMod<'a>(pub ScanMod, pub DiscoveredMod<'a>);
 
@@ -59,7 +71,7 @@ pub struct EnvironmentContext<'a> {
     pub launcher: Option<Launcher>,
     pub mc_version: Option<String>,
     pub loader: Option<ModLoader>,
-    pub discovered_mods: Vec<DiscoveredMod<'a>>,
+    pub discovered_mods: HashSet<DiscoveredMod<'a>>,
     pub known_mods: Vec<KnownMod<'a>>,
 }
 
@@ -162,7 +174,7 @@ pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
     )
     .map(|o| o.expect("Regex error!!!"));
 
-    let mut discovered_mods = [
+    let discovered_mods = [
         Regex::new(r"\n\s*- (\S+) (\S+)"),
         Regex::new(r"\n\s*(\S+): .+ (\S+)"),
         Regex::new(r"mod '.+' \((\S+)\) (\S+)"),
@@ -181,9 +193,7 @@ pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
             })
             .collect::<Vec<_>>()
     })
-    .collect::<Vec<_>>();
-
-    discovered_mods.dedup();
+    .collect::<HashSet<_>>();
 
     let scan_mods = vec![
         ScanMod("fabric", "<:fabric:1246103308842700831> Fabric API"),

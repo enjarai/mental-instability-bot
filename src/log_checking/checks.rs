@@ -42,17 +42,21 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         dependency_generic,
         crash_generic,
         mixin_conflicts,
+        duck_fail,
         class_missing_generic,
         broken_modmenu,
+        frozen_registry,
         java,
         jdk,
         missing_field,
         datapacks_failed,
+        disk_full,
         quilt,
         polymc,
         optifabric,
         bclib,
         feather,
+        mcreator,
         indium,
     ]
     .iter()
@@ -70,6 +74,22 @@ pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<Che
         return Some(CheckReport {
             title: "Crash report analysis".to_string(),
             description: format!("Context: `{description}`\n```\n{error}\n```"),
+            severity: Severity::High,
+        });
+    }
+
+    if let Some(Some(error)) = grab!(log, r"Minecraft has crashed!\n(.+)\n") {
+        return Some(CheckReport {
+            title: "Crash detected".to_string(),
+            description: format!("```{error}```"),
+            severity: Severity::High,
+        });
+    }
+
+    if grab!(log, r"This crash report has been saved to:").is_some() {
+        return Some(CheckReport {
+            title: "Crash detected".to_string(),
+            description: "No details could be determined automatically.".to_string(),
             severity: Severity::High,
         });
     }
@@ -138,7 +158,8 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
     if let Some(Some(mod_id)) = grab!(
         log,
         r"MixinApplyError: Mixin \[\S+\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.json\] FAILED during \S+",
-        r"InvalidInjectionException: .+ from mod ([\w\(\)-]+)\s?\->.+"
+        r"InvalidInjectionException: .+ from mod ([\w\(\)-]+)\s?\->.+",
+        r"Mixin apply for mod (\S+) failed \S+.json:\w+ from mod \S+ \-> \S+:"
     ) {
         return Some(CheckReport {
             title: "Mixin error".to_string(),
@@ -186,6 +207,20 @@ pub fn mixin_conflicts(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepo
     None
 }
 
+pub fn duck_fail(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(Some(package)) = grab!(
+        log,
+        r"AbstractMethodError: Receiver class \S+ does not define or inherit an implementation of the resolved method '.+' of interface (\S+)\.\w+\."
+    ) {
+        return Some(CheckReport {
+            title: "Duck interface failed".to_string(),
+            description: format!("A duck interface from the `{package}` package has failed to properly inject, this may indicate a broken mod or compatibility issue."),
+            severity: Severity::High,
+        });
+    }
+    None
+}
+
 pub fn class_missing_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     let packages = Regex::new(r"java\.lang\.ClassNotFoundException: (\S+)\.\w+")
         .expect("Regex err")
@@ -223,6 +258,20 @@ pub fn broken_modmenu(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepor
             title: "Broken config screens".to_string(),
             description,
             severity: Severity::Medium,
+        });
+    }
+    None
+}
+
+pub fn frozen_registry(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(Some(namespace)) = grab!(
+        log,
+        r"IllegalStateException: Registry is already frozen \(trying to add key ResourceKey\[[\w-]+:[\w-]+ \/ ([\w-]+):\S+\]\)"
+    ) {
+        return Some(CheckReport {
+            title: "Frozen registry accessed".to_string(),
+            description: format!("A mod with the `{namespace}` namespace tried to modify a frozen registry. This may indicate a broken mod or conflict."),
+            severity: Severity::High,
         });
     }
     None
@@ -334,6 +383,19 @@ pub fn datapacks_failed(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRep
     None
 }
 
+pub fn disk_full(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if grab!(log, r"IOException: No space left on device").is_some() {
+        return Some(CheckReport {
+            title: "Full storage".to_string(),
+            description:
+                "The game cannot save certain data, your storage drive is likely to be full."
+                    .to_string(),
+            severity: Severity::High,
+        });
+    }
+    None
+}
+
 pub fn quilt(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(ModLoader::Quilt(_)) = &ctx.loader {
         return Some(CheckReport {
@@ -399,6 +461,17 @@ pub fn feather(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
         return Some(CheckReport {
             title: "Feather Client detected".to_string(),
             description: "Feather Client is known to cause issues with some mods. If you're experiencing crashes or other problems, consider trying without it.".to_string(),
+            severity: Severity::Medium,
+        });
+    }
+    None
+}
+
+pub fn mcreator(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(Some(mod_id)) = grab!(log, r"at net\.mcreator\.([\w-]+)\.") {
+        return Some(CheckReport {
+            title: "MCreator mod issue".to_string(),
+            description: format!("The mod `{mod_id}` is being mentioned in an error message. This is a mod made using MCreator, a tool for easily making basic mods.\n\nMCreator is known to produce subpar code that might cause issues with other mods. Consider removing this mod to alleviate potential issues."),
             severity: Severity::Medium,
         });
     }
