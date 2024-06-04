@@ -43,9 +43,11 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         crash_generic,
         mixin_conflicts,
         class_missing_generic,
+        broken_modmenu,
         java,
         jdk,
         missing_field,
+        datapacks_failed,
         quilt,
         polymc,
         optifabric,
@@ -135,7 +137,7 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
 
     if let Some(Some(mod_id)) = grab!(
         log,
-        r"MixinApplyError: Mixin \[\S+\.mixins\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.mixins\.json\] FAILED during \S+",
+        r"MixinApplyError: Mixin \[\S+\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.json\] FAILED during \S+",
         r"InvalidInjectionException: .+ from mod ([\w\(\)-]+)\s?\->.+"
     ) {
         return Some(CheckReport {
@@ -198,6 +200,27 @@ pub fn class_missing_generic(log: &str, _ctx: &EnvironmentContext) -> Option<Che
 
         return Some(CheckReport {
             title: "Missing classes".to_string(),
+            description,
+            severity: Severity::Medium,
+        });
+    }
+    None
+}
+
+pub fn broken_modmenu(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    let mods = Regex::new(r"Mod (\S+) provides a broken implementation of ModMenuApi")
+        .expect("Regex err")
+        .captures_iter(log)
+        .map(|cap| cap.get(1).expect("Reger err").as_str())
+        .collect::<HashSet<&str>>();
+    if !mods.is_empty() {
+        let mut description = "The mods below have broken config screen implementations. You may need to install an additional dependency such as [Cloth Config](https://modrinth.com/mod/cloth-config) or [YACL](https://modrinth.com/mod/yacl) to be able to change their settings.\n".to_string();
+        for ele in mods {
+            let _ = write!(description, "- `{}`\n", ele);
+        }
+
+        return Some(CheckReport {
+            title: "Broken config screens".to_string(),
             description,
             severity: Severity::Medium,
         });
@@ -294,6 +317,17 @@ pub fn missing_field(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
         return Some(CheckReport {
             title: "Field missing error".to_string(),
             description: "On the logical server some fields may be deleted by Fabric Loader when a mod defines them as client-only. Since this feature was broken before loader `0.15`, some mods may have implemented it incorrectly. See if there's an update for the mod in question, or try downgrading Fabric Loader.".to_string(),
+            severity: Severity::High,
+        });
+    }
+    None
+}
+
+pub fn datapacks_failed(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if grab!(log, r"Failed to load datapacks, can't proceed with server load\. You can either fix your datapacks or reset to vanilla").is_some() {
+        return Some(CheckReport {
+            title: "Datapack loading failed".to_string(),
+            description: "The server couldn't load datapack resources, further investigation is required.".to_string(),
             severity: Severity::High,
         });
     }
