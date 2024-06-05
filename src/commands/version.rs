@@ -73,7 +73,7 @@ loader_version={}```",
     Ok(())
 }
 
-pub async fn get_yarn_version(mc_version: &str) -> Result<YarnVersion, Error> {
+pub async fn get_yarn_version(mc_version: &str) -> anyhow::Result<YarnVersion> {
     let mut yarn_response: &str = &reqwest::get(format!(
         "{}/versions/yarn/{}?limit=1",
         crate::constants::FABRIC_META_URL,

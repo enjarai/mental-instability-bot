@@ -8,11 +8,13 @@ mod constants;
 mod log_checking;
 mod log_upload;
 mod macros;
+mod mappings;
 
 use std::fs;
 
 use config::Config;
 use log_upload::check_for_logs;
+use mappings::cache::MappingsCache;
 use poise::FrameworkOptions;
 use serenity::all::CreateMessage;
 use serenity::all::Message;
@@ -24,6 +26,12 @@ pub struct ConfigData;
 
 impl TypeMapKey for ConfigData {
     type Value = Config;
+}
+
+pub struct MappingsCacheKey;
+
+impl TypeMapKey for MappingsCacheKey {
+    type Value = MappingsCache;
 }
 
 struct Handler;
@@ -66,6 +74,8 @@ async fn main() {
         commands::check_logs::check_logs(),
         commands::modversion::modversion(),
         commands::update_deps::update_deps(),
+        commands::yarn::yarn(),
+        commands::yarn::cache_status(),
     ];
     commands.append(&mut commands::tags::load_tag_commands());
 
@@ -104,6 +114,7 @@ async fn main() {
     {
         let mut data_lock = client.data.write().await;
         data_lock.insert::<ConfigData>(config);
+        data_lock.insert::<MappingsCacheKey>(MappingsCache::create());
     }
 
     // start listening for events by starting a single shard

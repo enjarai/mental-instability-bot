@@ -67,18 +67,18 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
 pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(captures) = grab_all!(
         log,
-        r"---- Minecraft Crash Report ----\n// .+\n\nTime: .+\nDescription: (.+)\n\n(.+)\n"
+        r"---- Minecraft Crash Report ----(?:\r\n|\r|\n)// .+(?:\r\n|\r|\n)(?:\r\n|\r|\n)Time: .+(?:\r\n|\r|\n)Description: (.+)(?:\r\n|\r|\n)(?:\r\n|\r|\n)(.+)(?:\r\n|\r|\n)"
     ) {
         let description = captures.get(1).expect("Regex err").as_str();
         let error = captures.get(2).expect("Regex err 2").as_str();
         return Some(CheckReport {
             title: "Crash report analysis".to_string(),
-            description: format!("Context: `{description}`\n```\n{error}\n```"),
+            description: format!("Context: `{description}`(?:\r\n|\r|\n)```(?:\r\n|\r|\n){error}(?:\r\n|\r|\n)```"),
             severity: Severity::High,
         });
     }
 
-    if let Some(Some(error)) = grab!(log, r"Minecraft has crashed!\n(.+)\n") {
+    if let Some(Some(error)) = grab!(log, r"Minecraft has crashed!(?:\r\n|\r|\n)(.+)(?:\r\n|\r|\n)") {
         return Some(CheckReport {
             title: "Crash detected".to_string(),
             description: format!("```{error}```"),

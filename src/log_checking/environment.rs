@@ -275,6 +275,10 @@ pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
         ),
         ScanMod("zauber", "<:zauber:1247198102230798516> Zauber"),
         ScanMod("owo", "<:owo:1246492160027656273> oωo"),
+        ScanMod(
+            "yet_another_config_lib_v3",
+            "<:yacl:1248028103775752212> Yet Another Config Lib",
+        ),
         // Shitass mods lmao
         ScanMod("optifabric", "<:optifabric:1246484303110606978> OptiFabric"),
         ScanMod("bclib", "<:bclib:1246585932379852901> BCLib"),
