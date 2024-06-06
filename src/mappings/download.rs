@@ -7,16 +7,7 @@ use zip::ZipArchive;
 
 use crate::commands::version::get_yarn_version;
 
-pub struct Mappings {
-    // `class_23232` -> `net.minecraft.something.Something`
-    pub full_classes: HashMap<String, String>,
-    // `class_23232` -> `Something`
-    pub partial_classes: HashMap<String, String>,
-    // `method_23232` -> `doSomething`
-    pub methods: HashMap<String, String>,
-    // `field_23232` -> `somethingData`
-    pub fields: HashMap<String, String>,
-}
+use super::Mappings;
 
 pub async fn download_mappings(mc_version: &str) -> Result<Option<Mappings>> {
     if let Some(yarn_version) = get_yarn_version(mc_version).await?.version {

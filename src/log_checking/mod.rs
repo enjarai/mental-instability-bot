@@ -10,9 +10,9 @@ use tokio::time::Instant;
 pub mod checks;
 pub mod environment;
 
-pub fn check_logs(log: &str, name: &str, t: &log_upload::LogType) -> CreateEmbed {
+pub fn check_logs(log: &str, name: &str, t: &log_upload::LogType, map_status: &log_upload::MapStatus) -> CreateEmbed {
     let start = Instant::now();
-    let ctx = get_environment_info(log);
+    let ctx = get_environment_info(log, map_status);
     let checks = check_checks(log, &ctx);
     let severity = checks
         .iter()

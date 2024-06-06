@@ -73,7 +73,7 @@ pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<Che
         let error = captures.get(2).expect("Regex err 2").as_str();
         return Some(CheckReport {
             title: "Crash report analysis".to_string(),
-            description: format!("Context: `{description}`(?:\r\n|\r|\n)```(?:\r\n|\r|\n){error}(?:\r\n|\r|\n)```"),
+            description: format!("Context: `{description}`\n```\n{error}\n```"),
             severity: Severity::High,
         });
     }

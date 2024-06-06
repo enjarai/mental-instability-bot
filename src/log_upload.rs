@@ -1,10 +1,11 @@
 use std::{
+    borrow::Cow,
     io::{Cursor, ErrorKind, Read},
     path::Path,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use flate2::read::GzDecoder;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -17,8 +18,9 @@ use serenity::client::Context;
 
 use crate::{
     constants::{MCLOGS_API_BASE_URL, PASTE_GG_API_BASE_URL},
-    get_config,
-    log_checking::check_logs,
+    log_checking::{check_logs, environment::read_mc_version},
+    mappings::cache::MappingsCache,
+    ConfigData, MappingsCacheKey,
 };
 
 #[derive(Deserialize, Clone)]
@@ -32,17 +34,26 @@ struct LogUpload<'a> {
     content: &'a str,
 }
 
-type Log = (String, LogType, String, String);
+type Log = (String, LogType, MapStatus, String, String);
 
 pub(crate) enum LogType {
     Uploaded,
+    Reuploaded,
     Downloaded,
+}
+
+pub(crate) enum MapStatus {
+    InvalidMcVersion,
+    Unmapped,
+    Mapped(Duration),
+    NotRequired,
 }
 
 impl LogType {
     pub(crate) fn title_format(&self, name: &str, took: &Duration) -> String {
         match self {
             Self::Uploaded => format!("Uploaded {name} in {}ms", took.as_millis()),
+            Self::Reuploaded => format!("Reuploaded {name} in {}ms", took.as_millis()),
             Self::Downloaded => format!("Scanned {name} in {}ms", took.as_millis()),
         }
     }
@@ -53,36 +64,40 @@ pub(crate) async fn check_for_logs(
     message: &Message,
     all: bool,
 ) -> Result<Option<(&'static str, Vec<CreateEmbed>, Vec<CreateActionRow>)>> {
-    if let Some(file_extensions) = &get_config!(ctx).log_extensions {
-        let attachments: Vec<_> = message
-            .attachments
-            .iter()
-            .filter(|attachment| all || is_valid_log(attachment, file_extensions))
-            .collect();
+    let mut data = ctx.data.write().await;
+    let attachments: Vec<_> =
+        if let Some(file_extensions) = &data.get::<ConfigData>().unwrap().log_extensions {
+            message
+                .attachments
+                .iter()
+                .filter(|attachment| all || is_valid_log(attachment, file_extensions))
+                .collect()
+        } else {
+            vec![]
+        };
 
-        let mut logs: Vec<Log> = upload_log_files(&attachments).await?;
-        logs.append(&mut check_pre_uploaded_logs(&message.content).await?);
+    let mappings_cache = data.get_mut::<MappingsCacheKey>().unwrap();
 
-        if logs.is_empty() {
-            return Ok(None);
-        }
+    let mut logs: Vec<Log> = upload_log_files(mappings_cache, &attachments).await?;
+    logs.append(&mut check_pre_uploaded_logs(mappings_cache, &message.content).await?);
 
-        let edit = (
-            "",
-            logs.iter()
-                .map(|(name, t, _, log)| check_logs(log, name, t))
-                .collect(),
-            vec![CreateActionRow::Buttons(
-                logs.iter()
-                    .map(|(name, _, url, _)| CreateButton::new_link(url).label(name))
-                    .collect(),
-            )],
-        );
-
-        Ok(Some(edit))
-    } else {
-        Ok(None)
+    if logs.is_empty() {
+        return Ok(None);
     }
+
+    let edit = (
+        "",
+        logs.iter()
+            .map(|(name, t, m, _, log)| check_logs(log, name, t, m))
+            .collect(),
+        vec![CreateActionRow::Buttons(
+            logs.iter()
+                .map(|(name, _, _, url, _)| CreateButton::new_link(url).label(name))
+                .collect(),
+        )],
+    );
+
+    Ok(Some(edit))
 }
 
 fn is_valid_log<T: AsRef<str>>(attachment: &Attachment, allowed_extensions: &[T]) -> bool {
@@ -92,7 +107,32 @@ fn is_valid_log<T: AsRef<str>>(attachment: &Attachment, allowed_extensions: &[T]
             .any(|extension| attachment.filename.ends_with(extension.as_ref())))
 }
 
-async fn upload_log_files(attachments: &[&Attachment]) -> Result<Vec<Log>> {
+async fn try_remap<'a>(
+    mappings_cache: &mut MappingsCache,
+    log: &'a str,
+) -> Result<(Cow<'a, str>, MapStatus)> {
+    let mut map_status = MapStatus::Unmapped;
+
+    if let Some(mc_version) = read_mc_version(log) {
+        map_status = MapStatus::InvalidMcVersion;
+
+        let start = Instant::now();
+
+        if let Some(mappings) = mappings_cache.get_or_download(&mc_version).await? {
+            let log = Cow::Owned(mappings.remap_log(log));
+            map_status = MapStatus::Mapped(Instant::now() - start);
+
+            return Ok((log, map_status));
+        }
+    }
+
+    Ok((Cow::Borrowed(log), map_status))
+}
+
+async fn upload_log_files(
+    mappings_cache: &mut MappingsCache,
+    attachments: &[&Attachment],
+) -> Result<Vec<Log>> {
     let mut responses = vec![];
 
     for attachment in attachments {
@@ -115,12 +155,16 @@ async fn upload_log_files(attachments: &[&Attachment]) -> Result<Vec<Log>> {
         };
         let log = String::from_utf8_lossy(&data);
 
+        // Potentially perhaps remap some logs
+        let (log, map_status) = try_remap(mappings_cache, &log).await?;
+
         let data = upload(&log).await?;
 
         if let Some(url) = data.url {
             responses.push((
                 attachment.filename.clone(),
                 LogType::Uploaded,
+                map_status,
                 url,
                 log.into_owned(),
             ));
@@ -130,12 +174,22 @@ async fn upload_log_files(attachments: &[&Attachment]) -> Result<Vec<Log>> {
     Ok(responses)
 }
 
-async fn check_pre_uploaded_logs(message_content: &str) -> Result<Vec<Log>> {
-    let mut responses = vec![];
+async fn check_pre_uploaded_logs(
+    mappings_cache: &mut MappingsCache,
+    message_content: &str,
+) -> Result<Vec<Log>> {
+    let mut logs: Vec<Log> = vec![];
 
     for (url, id) in find_urls(r"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)", message_content) {
         let log_data = download(&id).await?;
-        responses.push((id, LogType::Downloaded, url, log_data));
+
+        logs.push((
+            id,
+            LogType::Downloaded,
+            MapStatus::NotRequired,
+            url,
+            log_data,
+        ));
     }
 
     for (url, id) in find_urls(
@@ -143,7 +197,32 @@ async fn check_pre_uploaded_logs(message_content: &str) -> Result<Vec<Log>> {
         message_content,
     ) {
         if let Some(log_data) = download_paste_gg(&id).await? {
-            responses.push((id, LogType::Downloaded, url, log_data));
+            logs.push((
+                id,
+                LogType::Downloaded,
+                MapStatus::NotRequired,
+                url,
+                log_data,
+            ));
+        }
+    }
+
+    let mut responses: Vec<Log> = vec![];
+
+    for log in logs {
+        let (remapped, map_status) = try_remap(mappings_cache, &log.4).await?;
+
+        if *remapped == log.4 {
+            responses.push((log.0, log.1, MapStatus::NotRequired, log.3, log.4));
+        } else {
+            let data = upload(&remapped).await?;
+            responses.push((
+                log.0,
+                LogType::Reuploaded,
+                map_status,
+                data.url.ok_or(anyhow!("Couldn't reupload"))?,
+                remapped.into_owned(),
+            ));
         }
     }
 

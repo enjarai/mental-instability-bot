@@ -1,6 +1,6 @@
 use crate::constants::{MAPPINGS_CACHE_LIMIT, MAPPINGS_CACHE_PURGE_SIZE};
 
-use super::download::{download_mappings, Mappings};
+use super::{download::download_mappings, Mappings};
 use anyhow::Result;
 use std::collections::HashMap;
 

@@ -2,6 +2,8 @@ use std::{collections::HashSet, fmt::Display, hash::Hash};
 
 use regex::Regex;
 
+use crate::log_upload::MapStatus;
+
 pub enum ModLoader {
     Fabric(Option<String>),
     Forge,
@@ -73,6 +75,7 @@ pub struct EnvironmentContext<'a> {
     pub loader: Option<ModLoader>,
     pub discovered_mods: HashSet<DiscoveredMod<'a>>,
     pub known_mods: Vec<KnownMod<'a>>,
+    pub map_status: &'a MapStatus,
 }
 
 impl Display for EnvironmentContext<'_> {
@@ -85,6 +88,9 @@ impl Display for EnvironmentContext<'_> {
         }
         if let Some(loader) = &self.loader {
             write!(f, "**Loader:** {}\n", loader)?;
+        }
+        if let MapStatus::Mapped(took) = self.map_status {
+            write!(f, "**Remapped in:** `{}ms`\n", took.as_millis())?;
         }
         if !self.known_mods.is_empty() {
             write!(f, "\n")?;
@@ -126,7 +132,17 @@ macro_rules! grab {
     }};
 }
 
-pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
+pub fn read_mc_version(log: &str) -> Option<String> {
+    grab!(
+        log,
+        r"Loading Minecraft ([^\s]+)",
+        r"minecraft server version ([^\s]+)",
+        r"Minecraft Version: ([^\s]+)"
+    )
+    .map(|o| o.expect("Regex error!!!"))
+}
+
+pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> EnvironmentContext<'a> {
     let launcher = if let Some(_) = grab!(log, r"Prism Launcher version:") {
         Some(Launcher::Prism)
     } else if let Some(_) = grab!(log, r"PolyMC version:") {
@@ -166,13 +182,7 @@ pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
         loader = Some(ModLoader::Quilt(quilt_version));
     }
 
-    let mc_version = grab!(
-        log,
-        r"Loading Minecraft ([^\s]+)",
-        r"minecraft server version ([^\s]+)",
-        r"Minecraft Version: ([^\s]+)"
-    )
-    .map(|o| o.expect("Regex error!!!"));
+    let mc_version = read_mc_version(log);
 
     let discovered_mods = [
         Regex::new(r"\n\s*- (\S+) (\S+)"),
@@ -301,5 +311,6 @@ pub fn get_environment_info<'a>(log: &'a str) -> EnvironmentContext<'a> {
         loader,
         discovered_mods,
         known_mods,
+        map_status,
     }
 }
