@@ -278,6 +278,10 @@ pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> Envi
             "inventory_sort",
             "<:chaiinventorysorter:1247198105745494086> Chai's Inventory Sorter",
         ),
+        ScanMod(
+            "flightassistant",
+            "<:flightassistant:1248205945494966334> FlightAssistant",
+        ),
         ScanMod("neruina", "<:neruina:1247198104017571900> Neruina"),
         ScanMod(
             "midnightlib",

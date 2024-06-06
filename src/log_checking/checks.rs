@@ -113,6 +113,24 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
             severity: Severity::High,
         });
     }
+
+    // 
+    if let Some(captures) = grab_all!(
+        log,
+        r"Mod '(.+)' \(\S+\) \S+ is incompatible with .+ mod '(.+)' \(\S+\), but a matching version is present: (\S+)!"
+    ) {
+        let mod_declared = captures.get(1).expect("Regex err").as_str();
+        let mod_implicated = captures.get(2).expect("Regex err 2").as_str();
+        let implicated_version = captures.get(3).expect("Regex err 3").as_str();
+        return Some(CheckReport {
+            title: "Explicit incompatibility".to_string(),
+            description: format!(
+                "The `{mod_declared}` mod is incompatible with version `{implicated_version}` of the `{mod_implicated}` mod. Remove either mod, or try updating `{mod_implicated}` if possible."
+            ),
+            severity: Severity::High,
+        });
+    }
+
     None
 }
 
