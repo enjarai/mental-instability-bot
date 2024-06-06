@@ -17,7 +17,7 @@ use serenity::{
 use serenity::client::Context;
 
 use crate::{
-    constants::{MCLOGS_API_BASE_URL, PASTE_GG_API_BASE_URL},
+    constants::{MCLOGS_API_BASE_URL, PASTEBIN_URL, PASTE_GG_API_BASE_URL},
     log_checking::{check_logs, environment::read_mc_version},
     mappings::cache::MappingsCache,
     ConfigData, MappingsCacheKey,
@@ -178,7 +178,7 @@ async fn check_pre_uploaded_logs(
     mappings_cache: &mut MappingsCache,
     message_content: &str,
 ) -> Result<Vec<Log>> {
-    let mut logs: Vec<Log> = vec![];
+    let mut logs: Vec<_> = vec![];
 
     for (url, id) in find_urls(r"https:\/\/mclo\.gs\/([a-zA-Z0-9]+)", message_content) {
         let log_data = download(&id).await?;
@@ -187,12 +187,12 @@ async fn check_pre_uploaded_logs(
             id,
             LogType::Downloaded,
             MapStatus::NotRequired,
-            url,
+            Some(url),
             log_data,
         ));
     }
 
-    for (url, id) in find_urls(
+    for (_, id) in find_urls(
         r"https:\/\/paste\.gg\/p\/\w+\/([a-zA-Z0-9]+)",
         message_content,
     ) {
@@ -201,10 +201,22 @@ async fn check_pre_uploaded_logs(
                 id,
                 LogType::Downloaded,
                 MapStatus::NotRequired,
-                url,
+                None,
                 log_data,
             ));
         }
+    }
+
+    for (_, id) in find_urls(r"https:\/\/pastebin\.com\/([a-zA-Z0-9]+)", message_content) {
+        let log_data = download_pastebin(&id).await?;
+
+        logs.push((
+            id,
+            LogType::Downloaded,
+            MapStatus::NotRequired,
+            None,
+            log_data,
+        ));
     }
 
     let mut responses: Vec<Log> = vec![];
@@ -212,8 +224,8 @@ async fn check_pre_uploaded_logs(
     for log in logs {
         let (remapped, map_status) = try_remap(mappings_cache, &log.4).await?;
 
-        if *remapped == log.4 {
-            responses.push((log.0, log.1, MapStatus::NotRequired, log.3, log.4));
+        if *remapped == log.4 && let Some(url) = log.3 {
+            responses.push((log.0, log.1, MapStatus::NotRequired, url, log.4));
         } else {
             let data = upload(&remapped).await?;
             responses.push((
@@ -302,4 +314,17 @@ async fn download_paste_gg(id: &str) -> Result<Option<String>> {
     }
 
     Ok(Some(response.result.files.remove(0).content.value))
+}
+
+async fn download_pastebin(id: &str) -> Result<String> {
+    let client: reqwest::Client = reqwest::Client::new();
+
+    let response = client
+        .get(format!("{PASTEBIN_URL}/raw/{id}"))
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    Ok(response)
 }

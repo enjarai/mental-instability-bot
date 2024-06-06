@@ -78,7 +78,11 @@ pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<Che
         });
     }
 
-    if let Some(Some(error)) = grab!(log, r"Minecraft has crashed!(?:\r\n|\r|\n)(.+)(?:\r\n|\r|\n)") {
+    if let Some(Some(error)) = grab!(
+        log,
+        r"Minecraft has crashed!(?:\r\n|\r|\n)(.+)(?:\r\n|\r|\n)",
+        r"Unreported exception thrown!(?:\r\n|\r|\n)(.+)(?:\r\n|\r|\n)"
+    ) {
         return Some(CheckReport {
             title: "Crash detected".to_string(),
             description: format!("```{error}```"),
@@ -114,7 +118,7 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
         });
     }
 
-    // 
+    //
     if let Some(captures) = grab_all!(
         log,
         r"Mod '(.+)' \(\S+\) \S+ is incompatible with .+ mod '(.+)' \(\S+\), but a matching version is present: (\S+)!"
