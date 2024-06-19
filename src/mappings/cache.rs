@@ -63,4 +63,8 @@ impl MappingsCache {
     pub fn cached_keys<'a>(&'a self) -> Vec<&'a String> {
         self.cache.keys().collect()
     }
+
+    pub fn get_hits(&self, key: &str) -> u32 {
+        self.cache.get(key).map(|c| c.hits).unwrap_or(0)
+    }
 }

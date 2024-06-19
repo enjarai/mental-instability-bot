@@ -23,13 +23,14 @@ macro_rules! check {
 )]
 pub(crate) async fn cache_status(ctx: Context<'_>) -> Result<(), Error> {
     // This is kinda stupid, but it stops that macro from breaking, so w/e
-    if let keys = get_mappings_cache!(ctx.serenity_context()).cached_keys() {
+    if let cache = get_mappings_cache!(ctx.serenity_context()) {
+        let keys = cache.cached_keys();
         let mut output = format!(
             "Currently caching the mappings for {} Minecraft versions.",
             keys.len()
         );
         for ele in keys {
-            write!(output, "\n- `{}`", ele)?;
+            write!(output, "\n- `{}` {} hits", ele, cache.get_hits(ele))?;
         }
 
         ctx.send(CreateReply::default().content(output).ephemeral(false))

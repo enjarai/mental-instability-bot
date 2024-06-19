@@ -26,7 +26,8 @@ use crate::{
 #[derive(Deserialize, Clone)]
 struct UploadData {
     url: Option<String>,
-    _error: Option<String>,
+    #[allow(dead_code)]
+    error: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -264,7 +265,7 @@ async fn upload(log: &str) -> Result<UploadData> {
         .body(serde_urlencoded::to_string(LogUpload { content: log })?)
         .send()
         .await?
-        .json()
+        .json::<UploadData>()
         .await?)
 }
 
