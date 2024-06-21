@@ -9,6 +9,7 @@ mod log_checking;
 mod log_upload;
 mod macros;
 mod mappings;
+mod util;
 
 use std::fs;
 

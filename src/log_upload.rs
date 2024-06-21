@@ -17,10 +17,7 @@ use serenity::{
 use serenity::client::Context;
 
 use crate::{
-    constants::{MCLOGS_API_BASE_URL, PASTEBIN_URL, PASTE_GG_API_BASE_URL},
-    log_checking::{check_logs, environment::read_mc_version},
-    mappings::cache::MappingsCache,
-    ConfigData, MappingsCacheKey,
+    constants::{MAX_LOG_SIZE, MCLOGS_API_BASE_URL, PASTEBIN_URL, PASTE_GG_API_BASE_URL}, log_checking::{check_logs, environment::read_mc_version}, mappings::cache::MappingsCache, util::format_bytes, ConfigData, MappingsCacheKey
 };
 
 #[derive(Deserialize, Clone)]
@@ -137,6 +134,14 @@ async fn upload_log_files(
     let mut responses = vec![];
 
     for attachment in attachments {
+        if attachment.size > MAX_LOG_SIZE {
+            return Err(anyhow!(
+                "Log size of {} exceeds the maximum allowed size of {}",
+                format_bytes(attachment.size),
+                format_bytes(MAX_LOG_SIZE)
+            ));
+        }
+
         let data = if Path::new(&attachment.filename)
             .extension()
             .map_or(false, |ext| ext.eq_ignore_ascii_case("gz"))
@@ -168,6 +173,11 @@ async fn upload_log_files(
                 map_status,
                 url,
                 log.into_owned(),
+            ));
+        } else {
+            return Err(anyhow!(
+                "Mclo.gs uploading error: {}",
+                data.error.unwrap_or("Unknown error".to_string())
             ));
         }
     }
@@ -225,7 +235,9 @@ async fn check_pre_uploaded_logs(
     for log in logs {
         let (remapped, map_status) = try_remap(mappings_cache, &log.4).await?;
 
-        if *remapped == log.4 && let Some(url) = log.3 {
+        if *remapped == log.4
+            && let Some(url) = log.3
+        {
             responses.push((log.0, log.1, MapStatus::NotRequired, url, log.4));
         } else {
             let data = upload(&remapped).await?;

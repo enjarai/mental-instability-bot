@@ -7,3 +7,4 @@ pub(crate) const PASTEBIN_URL: &str = "https://pastebin.com";
 
 pub(crate) const MAPPINGS_CACHE_LIMIT: usize = 5;
 pub(crate) const MAPPINGS_CACHE_PURGE_SIZE: usize = 3;
+pub(crate) const MAX_LOG_SIZE: u32 = 8_000_000;
