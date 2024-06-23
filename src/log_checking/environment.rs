@@ -264,6 +264,7 @@ pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> Envi
             "restart_detector",
             "<:restartdetector:1172685600000847922> Restart Detector",
         ),
+        ScanMod("trickster", "<:trickster:1254515857640394876> Trickster"),
         ScanMod("cicada", "<:cicada:1246197518807863367> CICADA"),
         ScanMod(
             "elytratrims",
@@ -278,6 +279,7 @@ pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> Envi
             "inventory_sort",
             "<:chaiinventorysorter:1247198105745494086> Chai's Inventory Sorter",
         ),
+        ScanMod("wowozela", "<:wowozela:1254516583032819732> Wowozela"),
         ScanMod(
             "flightassistant",
             "<:flightassistant:1248205945494966334> FlightAssistant",
