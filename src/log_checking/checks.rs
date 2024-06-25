@@ -489,6 +489,18 @@ pub fn feather(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
     None
 }
 
+//// Nah, i dont think we need this actually
+// pub fn theseus(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
+//     if ctx.launcher == Some(Launcher::Theseus){
+//         return Some(CheckReport {
+//             title: "Modrinth Launcher detected".to_string(),
+//             description: "The Modrinth launcher is known to sometimes cut off log files displayed in its console.".to_string(),
+//             severity: Severity::Medium,
+//         });
+//     }
+//     None
+// }
+
 pub fn mcreator(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(Some(mod_id)) = grab!(log, r"at net\.mcreator\.([\w-]+)\.") {
         return Some(CheckReport {

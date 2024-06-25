@@ -29,12 +29,14 @@ impl Display for ModLoader {
 }
 
 #[allow(dead_code)]
+#[derive(PartialEq)]
 pub enum Launcher {
     Prism,
     PolyMC, // :concern:
     MultiMC,
     Vanilla,
     CurseForge,
+    Theseus, // Modrinth launcher
 }
 
 impl Display for Launcher {
@@ -45,6 +47,7 @@ impl Display for Launcher {
             Self::MultiMC => write!(f, "<:multimc:1246451644342865992>"),
             Self::Vanilla => write!(f, "<:minecraft:1246451645441642496>"),
             Self::CurseForge => write!(f, "<:curseforge:1246451646909911141>"),
+            Self::Theseus => write!(f, "<:modrinth:1255163992658149376>"),
         }
     }
 }
@@ -149,6 +152,8 @@ pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> Envi
         Some(Launcher::PolyMC)
     } else if let Some(_) = grab!(log, r"MultiMC version:") {
         Some(Launcher::MultiMC)
+    } else if let Some(_) = grab!(log, r"[\\/]com\.modrinth\.theseus[\\/]") {
+        Some(Launcher::Theseus)
     } else {
         None
     };
