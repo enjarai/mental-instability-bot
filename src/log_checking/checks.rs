@@ -46,10 +46,12 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         class_missing_generic,
         broken_modmenu,
         frozen_registry,
+        failed_registry,
         java,
         jdk,
         missing_field,
         datapacks_failed,
+        resource_files,
         disk_full,
         quilt,
         polymc,
@@ -139,6 +141,22 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
 }
 
 pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if grab!(log, r"java\.lang\.Error: Watchdog").is_some() {
+        return Some(CheckReport {
+            title: "Watchdog crash".to_string(),
+            description: "The server watchdog has killed the game. This usually happens when a tick takes way longer than its supposed to, which may be a result of extreme lag.".to_string(),
+            severity: Severity::High,
+        });
+    }
+
+    if grab!(log, r"java\.lang\.OutOfMemoryError:").is_some() {
+        return Some(CheckReport {
+            title: "Out of memory".to_string(),
+            description: "The game crashed because it ran out of memory. Consider allocating extra memory to the game or removing big content mods to save on memory usage.".to_string(),
+            severity: Severity::High,
+        });
+    }
+
     if let Some(Some(mod_id)) = grab!(
         log,
         r"RuntimeException: Error creating Mixin config \S+\.json for mod (\S+)"
@@ -299,6 +317,17 @@ pub fn frozen_registry(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepo
     None
 }
 
+pub fn failed_registry(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if grab!(log, r"Failed to load registries due to above errors").is_some() {
+        return Some(CheckReport {
+            title: "Critical registry failure".to_string(),
+            description: "One or more registries experienced critical loading failures, this may be related to broken resource files.".to_string(),
+            severity: Severity::High,
+        });
+    }
+    None
+}
+
 pub fn match_java_classfile_version(classfile_version: &str) -> Option<&'static str> {
     match classfile_version {
         "49.0" => Some("5"),
@@ -405,13 +434,33 @@ pub fn datapacks_failed(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRep
     None
 }
 
+pub fn resource_files(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    let ids = Regex::new(r"Failed to parse (\S+) from pack [\w:-]")
+        .expect("Regex err")
+        .captures_iter(log)
+        .map(|cap| cap.get(1).expect("Reger err").as_str())
+        .collect::<HashSet<&str>>();
+    if !ids.is_empty() {
+        let mut description = "The resource or datapack files below failed to load. The mods they originate from might be out of date.\n".to_string();
+        for ele in ids {
+            let _ = write!(description, "- `{}`\n", ele);
+        }
+
+        return Some(CheckReport {
+            title: "Broken resource files".to_string(),
+            description,
+            severity: Severity::Medium,
+        });
+    }
+    None
+}
+
 pub fn disk_full(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     if grab!(log, r"IOException: No space left on device").is_some() {
         return Some(CheckReport {
             title: "Full storage".to_string(),
-            description:
-                "The game cannot save certain data, your storage drive is likely to be full."
-                    .to_string(),
+            description: "The game cannot save certain data, your storage drive might be full."
+                .to_string(),
             severity: Severity::High,
         });
     }
