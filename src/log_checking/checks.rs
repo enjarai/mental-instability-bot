@@ -49,6 +49,7 @@ pub fn check_checks(log: &str, ctx: &EnvironmentContext) -> Vec<CheckReport> {
         failed_registry,
         java,
         jdk,
+        broken_cicada_config,
         missing_field,
         datapacks_failed,
         resource_files,
@@ -407,6 +408,20 @@ pub fn jdk(log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
                 "A mod or Minecraft itself requires the use of a JDK type distribution of Java instead of the used JRE type. You may have to [download](https://adoptium.net/temurin/releases/) a JDK type Java version and/or select it in your launcher.".to_string()
             },
             severity: Severity::High,
+        });
+    }
+    None
+}
+
+pub fn broken_cicada_config(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
+    if let Some(Some(path)) = grab!(
+        log,
+        r"\[cicada\] Failed to parse config file, backing up and overwriting with default config: (.+)"
+    ) {
+        return Some(CheckReport {
+            title: "Broken config file".to_string(),
+            description: format!("The config file below has failed to load. It has been backed up and reverted to its original state.\n```{path}```"),
+            severity: Severity::Medium,
         });
     }
     None
