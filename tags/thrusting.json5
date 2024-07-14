@@ -1,0 +1,6 @@
+{
+    "title": "Using Thrusting in DABR",
+    "description": "# In Singleplayer:\nMake sure you have cheats/commands enabled in your world, then go to the mod config screen and find the `Server` tab. In there, enable the option to allow thrusting. After this, you should be able to enable the thrusting option in the `General` tab.\n\n# On Servers:\n- If you own the server, see [this part](https://github.com/enjarai/do-a-barrel-roll?tab=readme-ov-file#thrusting) of the github README.\n- If you don't own the server, ask the server owner to follow the above guide to allow thrusting.",
+    "color": 0xff4466,
+    "thumbnail": "https://cdn.modrinth.com/data/6FtRfnLg/icon.png"
+}
