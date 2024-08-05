@@ -51,7 +51,7 @@ impl EventHandler for Handler {
                     .embeds(edit.1)
                     .components(edit.2)
                     .reference_message(&message);
-                if let Err(err) = message.channel_id.send_message(ctx, reply).await {
+                if let Err(err) = message.channel_id.send_message(&ctx, reply).await {
                     println!("Error posting log upload: {err}");
                 }
             }
@@ -61,7 +61,20 @@ impl EventHandler for Handler {
             Err(err) => {
                 println!("Log uploading threw error: {err}");
             }
-        }
+        };
+
+        if !message.author.bot {
+            let lower_case = message.content.to_ascii_lowercase();
+            if lower_case.contains("particular") {
+                if let Err(err) = message.reply(&ctx, "The way you worded that is quite effective.").await {
+                    println!("Error being funny: {err}");
+                }
+            } else if lower_case.contains("effective") {
+                if let Err(err) = message.reply(&ctx, "That's some particular wording...").await {
+                    println!("Error being funny: {err}");
+                }
+            }
+        };
     }
 }
 
