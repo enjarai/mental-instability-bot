@@ -1,6 +1,8 @@
 use poise::CreateReply;
 use serde::Deserialize;
 
+use crate::util::create_http;
+
 use super::{Context, Error};
 
 #[derive(Deserialize)]
@@ -32,14 +34,16 @@ pub(crate) async fn version(
 ) -> Result<(), Error> {
     let yarn_version = get_yarn_version(&version).await?;
 
-    let mut loader_response: &str = &reqwest::get(format!(
-        "{}/versions/loader/{}?limit=1",
-        crate::constants::FABRIC_META_URL,
-        version
-    ))
-    .await?
-    .text()
-    .await?;
+    let mut loader_response: &str = &create_http()?
+        .get(format!(
+            "{}/versions/loader/{}?limit=1",
+            crate::constants::FABRIC_META_URL,
+            version
+        ))
+        .send()
+        .await?
+        .text()
+        .await?;
     if let Some(stripped) = loader_response.strip_prefix('[') {
         loader_response = stripped;
     }
@@ -51,9 +55,7 @@ pub(crate) async fn version(
     }
     let loader_version: LoaderWrapper = serde_json::from_str(loader_response)?;
 
-    ctx.send(
-        CreateReply::default()
-            .content(format!(
+    ctx.send(CreateReply::default().content(format!(
                 "```
 minecraft_version={}
 yarn_mappings={}
@@ -66,22 +68,23 @@ loader_version={}```",
                     .loader
                     .and_then(|loader| loader.version)
                     .unwrap_or_else(|| "unknown".to_owned())
-            ))
-    )
+            )))
     .await?;
 
     Ok(())
 }
 
 pub async fn get_yarn_version(mc_version: &str) -> anyhow::Result<YarnVersion> {
-    let mut yarn_response: &str = &reqwest::get(format!(
-        "{}/versions/yarn/{}?limit=1",
-        crate::constants::FABRIC_META_URL,
-        mc_version
-    ))
-    .await?
-    .text()
-    .await?;
+    let mut yarn_response: &str = &create_http()?
+        .get(format!(
+            "{}/versions/yarn/{}?limit=1",
+            crate::constants::FABRIC_META_URL,
+            mc_version
+        ))
+        .send()
+        .await?
+        .text()
+        .await?;
     if let Some(stripped) = yarn_response.strip_prefix('[') {
         yarn_response = stripped;
     }

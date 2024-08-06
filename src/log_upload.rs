@@ -17,7 +17,11 @@ use serenity::{
 use serenity::client::Context;
 
 use crate::{
-    constants::{MAX_LOG_SIZE, MCLOGS_API_BASE_URL, PASTEBIN_URL, PASTE_GG_API_BASE_URL}, log_checking::{check_logs, environment::read_mc_version}, mappings::cache::MappingsCache, util::format_bytes, ConfigData, MappingsCacheKey
+    constants::{MAX_LOG_SIZE, MCLOGS_API_BASE_URL, PASTEBIN_URL, PASTE_GG_API_BASE_URL},
+    log_checking::{check_logs, environment::read_mc_version},
+    mappings::cache::MappingsCache,
+    util::{create_http, format_bytes},
+    ConfigData, MappingsCacheKey,
 };
 
 #[derive(Deserialize, Clone)]
@@ -269,7 +273,7 @@ fn find_urls(regex: &str, message_content: &str) -> Vec<(String, String)> {
 }
 
 async fn upload(log: &str) -> Result<UploadData> {
-    let client = reqwest::Client::new();
+    let client = create_http()?;
 
     Ok(client
         .post(format!("{MCLOGS_API_BASE_URL}/1/log"))
@@ -282,7 +286,7 @@ async fn upload(log: &str) -> Result<UploadData> {
 }
 
 async fn download(id: &str) -> Result<String> {
-    let client = reqwest::Client::new();
+    let client = create_http()?;
 
     Ok(client
         .get(format!("{MCLOGS_API_BASE_URL}/1/raw/{id}"))
@@ -313,7 +317,7 @@ struct GGContent {
 }
 
 async fn download_paste_gg(id: &str) -> Result<Option<String>> {
-    let client: reqwest::Client = reqwest::Client::new();
+    let client = create_http()?;
 
     let mut response = client
         .get(format!("{PASTE_GG_API_BASE_URL}/pastes/{id}?full=true"))
@@ -330,7 +334,7 @@ async fn download_paste_gg(id: &str) -> Result<Option<String>> {
 }
 
 async fn download_pastebin(id: &str) -> Result<String> {
-    let client: reqwest::Client = reqwest::Client::new();
+    let client = create_http()?;
 
     let response = client
         .get(format!("{PASTEBIN_URL}/raw/{id}"))

@@ -90,6 +90,7 @@ async fn main() {
         commands::update_deps::update_deps(),
         commands::yarn::yarn(),
         commands::yarn::cache_status(),
+        commands::shortcut::modrinth(),
     ];
     commands.append(&mut commands::tags::load_tag_commands());
 

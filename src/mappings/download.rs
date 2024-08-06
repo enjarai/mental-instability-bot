@@ -5,21 +5,23 @@ use std::{
 };
 use zip::ZipArchive;
 
-use crate::commands::version::get_yarn_version;
+use crate::{commands::version::get_yarn_version, util::create_http};
 
 use super::Mappings;
 
 pub async fn download_mappings(mc_version: &str) -> Result<Option<Mappings>> {
     if let Some(yarn_version) = get_yarn_version(mc_version).await?.version {
-        let yarn_jar = &reqwest::get(format!(
-            "{}/net/fabricmc/yarn/{}/yarn-{}-v2.jar",
-            crate::constants::FABRIC_MAVEN_URL,
-            yarn_version,
-            yarn_version
-        ))
-        .await?
-        .bytes()
-        .await?;
+        let yarn_jar = &create_http()?
+            .get(format!(
+                "{}/net/fabricmc/yarn/{}/yarn-{}-v2.jar",
+                crate::constants::FABRIC_MAVEN_URL,
+                yarn_version,
+                yarn_version
+            ))
+            .send()
+            .await?
+            .bytes()
+            .await?;
 
         let mut zip = ZipArchive::new(Cursor::new(yarn_jar))?;
 

@@ -1,6 +1,8 @@
 use poise::CreateReply;
-use reqwest::{Client, StatusCode};
+use reqwest::StatusCode;
 use serde::Deserialize;
+
+use crate::util::create_http;
 
 use super::{Context, Error};
 
@@ -54,9 +56,7 @@ pub async fn get_mod_version(
     mc_version: Option<&str>,
     loader: &str,
 ) -> Result<Result<String, String>, Error> {
-    let client = Client::builder()
-        .user_agent("enjarai/mental-instability-bot (enjarai@protonmail.com)")
-        .build()?;
+    let client = create_http()?;
 
     let version_query = match mc_version {
         Some(version) => {
