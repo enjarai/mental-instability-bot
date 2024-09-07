@@ -270,6 +270,7 @@ pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> Envi
             "<:restartdetector:1172685600000847922> Restart Detector",
         ),
         ScanMod("trickster", "<:trickster:1254515857640394876> Trickster"),
+        ScanMod("headpats", "<:headpats:1282096343006838825> Headpat a Friend!"),
         ScanMod("cicada", "<:cicada:1246197518807863367> CICADA"),
         ScanMod(
             "elytratrims",
