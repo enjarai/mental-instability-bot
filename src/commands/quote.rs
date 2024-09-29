@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::get_config;
 
 use super::{Context, Error};
+use poise::CreateReply;
 use serenity::all::{Attachment, Message};
 use serenity::{
     all::ChannelId,
@@ -24,13 +25,23 @@ async fn quote_internal(
     quote: &String,
     icon_url: Option<&String>,
     attachments: Option<&Vec<Attachment>>,
+    message_url: Option<&String>,
 ) -> Result<(), Error> {
     match get_config!(ctx.serenity_context()).quotes_channel {
         Some(id) => {
             let channel = ChannelId::new(id);
 
-            if ctx.guild_id().is_none() {
-                ctx.reply("Nuh uh :brombeere:").await?;
+            let is_external = channel
+                .to_channel(ctx.http())
+                .await?
+                .guild()
+                .map_or(true, |gc| {
+                    ctx.guild_id().map_or(true, |id| id != gc.guild_id)
+                });
+
+            if message_url.is_none() && is_external {
+                ctx.reply("Can't quote custom quotes outside main server.")
+                    .await?;
 
                 return Ok(());
             }
@@ -50,21 +61,29 @@ async fn quote_internal(
                 embed = embed.image(&attachments[0].url);
             }
 
-            let builder = CreateMessage::new().embed(embed);
+            let mut builder = CreateMessage::new().embed(embed);
 
-            match channel.send_message(ctx.http(), builder).await {
+            if let Some(url) = message_url {
+                builder = builder.content(url);
+            }
+
+            let reply = match channel.send_message(ctx.http(), builder).await {
                 Ok(_) => {
-                    ctx.reply(format!("Quoted: '{quote}' - {author}")).await?;
+                    format!("Quoted: '{quote}' - {author}")
                 }
                 Err(e) => {
-                    ctx.reply(format!("Failed to quote, {e}")).await?;
+                    format!("Failed to quote, {e}")
                 }
             };
+
+            ctx.send(CreateReply::default().content(reply).ephemeral(is_external))
+                .await?;
         }
         None => {
             ctx.reply("No quotes channel specified").await?;
         }
     }
+
     Ok(())
 }
 
@@ -74,10 +93,15 @@ pub async fn quote(
     #[description = "The text to quote"] quote: String,
     #[description = "The author of said text"] author: String,
 ) -> Result<(), Error> {
-    quote_internal(ctx, &author, &quote, None, None).await
+    quote_internal(ctx, &author, &quote, None, None, None).await
 }
 
-#[poise::command(track_edits, context_menu_command = "Quote this message")]
+#[poise::command(
+    track_edits,
+    context_menu_command = "Quote this message",
+    install_context = "Guild|User",
+    interaction_context = "Guild|BotDm|PrivateChannel"
+)]
 pub async fn context_quote(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
     quote_internal(
         ctx,
@@ -89,6 +113,7 @@ pub async fn context_quote(ctx: Context<'_>, msg: Message) -> Result<(), Error> 
                 .unwrap_or(msg.author.default_avatar_url()),
         ),
         Some(&msg.attachments),
+        Some(&msg.link_ensured(ctx.http()).await),
     )
     .await
 }

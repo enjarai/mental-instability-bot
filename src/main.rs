@@ -44,7 +44,7 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, message: Message) {
-        match check_for_logs(&ctx, &message, false).await {
+        match check_for_logs(&ctx, &message, false, false).await {
             Ok(Some(edit)) => {
                 let reply = CreateMessage::default()
                     .content(edit.0)
@@ -62,19 +62,6 @@ impl EventHandler for Handler {
                 println!("Log uploading threw error: {err}");
             }
         };
-
-        if !message.author.bot {
-            let lower_case = message.content.to_ascii_lowercase();
-            if lower_case.contains("particular") {
-                if let Err(err) = message.reply(&ctx, "The way you worded that is quite effective.").await {
-                    println!("Error being funny: {err}");
-                }
-            } else if lower_case.contains("effective") {
-                if let Err(err) = message.reply(&ctx, "That's some particular wording...").await {
-                    println!("Error being funny: {err}");
-                }
-            }
-        };
     }
 }
 
@@ -85,7 +72,8 @@ async fn main() {
         commands::quote::quote(),
         commands::quote::context_quote(),
         commands::version::version(),
-        commands::check_logs::check_logs(),
+        commands::check_logs::check_logs_normal(),
+        commands::check_logs::check_logs_compact(),
         commands::modversion::modversion(),
         commands::update_deps::update_deps(),
         commands::yarn::yarn(),

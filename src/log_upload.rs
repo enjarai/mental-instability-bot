@@ -18,7 +18,7 @@ use serenity::client::Context;
 
 use crate::{
     constants::{MAX_LOG_SIZE, MCLOGS_API_BASE_URL, PASTEBIN_URL, PASTE_GG_API_BASE_URL},
-    log_checking::{check_logs, environment::read_mc_version},
+    log_checking::{check_logs, checks::Severity, environment::read_mc_version},
     mappings::cache::MappingsCache,
     util::{create_http, format_bytes},
     ConfigData, MappingsCacheKey,
@@ -65,6 +65,7 @@ pub(crate) async fn check_for_logs(
     ctx: &Context,
     message: &Message,
     all: bool,
+    compact: bool,
 ) -> Result<Option<(&'static str, Vec<CreateEmbed>, Vec<CreateActionRow>)>> {
     let mut data = ctx.data.write().await;
     let attachments: Vec<_> =
@@ -87,11 +88,19 @@ pub(crate) async fn check_for_logs(
         return Ok(None);
     }
 
-    let edit = (
-        "",
+    let embeds = if compact {
+        vec![CreateEmbed::new()
+            .title(format!("Uploaded logs."))
+            .color(Severity::None.get_color())]
+    } else {
         logs.iter()
             .map(|(name, t, m, _, log)| check_logs(log, name, t, m))
-            .collect(),
+            .collect()
+    };
+
+    let edit = (
+        "",
+        embeds,
         vec![CreateActionRow::Buttons(
             logs.iter()
                 .map(|(name, _, _, url, _)| CreateButton::new_link(url).label(name))
