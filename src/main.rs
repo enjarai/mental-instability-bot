@@ -5,6 +5,7 @@
 mod commands;
 mod config;
 mod constants;
+mod db;
 mod log_checking;
 mod log_upload;
 mod macros;
@@ -22,6 +23,7 @@ use serenity::all::Message;
 use serenity::all::Ready;
 use serenity::async_trait;
 use serenity::prelude::*;
+use sqlx::postgres::PgPoolOptions;
 
 pub struct ConfigData;
 
@@ -33,6 +35,12 @@ pub struct MappingsCacheKey;
 
 impl TypeMapKey for MappingsCacheKey {
     type Value = MappingsCache;
+}
+
+pub struct DatabaseKey;
+
+impl TypeMapKey for DatabaseKey {
+    type Value = db::Db;
 }
 
 struct Handler;
@@ -96,6 +104,29 @@ async fn main() {
         toml::from_str(&fs::read_to_string("config.toml").expect("reading config"))
             .expect("parsing config");
 
+    // let (db, connection) = tokio_postgres::Config::new()
+    //     .host(&config.db_host)
+    //     .user(&config.db_username)
+    //     .password(&config.db_password)
+    //     .connect(NoTls)
+    //     .await
+    //     .expect("Failed to connect to database");
+
+    // tokio::spawn(async move {
+    //     if let Err(e) = connection.await {
+    //         eprintln!("Connection error: {}", e);
+    //     }
+    // });
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&format!(
+            "postgres://{}:{}@{}/test",
+            config.db_username, config.db_password, config.db_host
+        ))
+        .await
+        .expect("Failed to connect to database");
+
     let framework = poise::Framework::builder()
         .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
@@ -118,6 +149,7 @@ async fn main() {
         let mut data_lock = client.data.write().await;
         data_lock.insert::<ConfigData>(config);
         data_lock.insert::<MappingsCacheKey>(MappingsCache::create());
+        data_lock.insert::<DatabaseKey>(pool);
     }
 
     // start listening for events by starting a single shard
