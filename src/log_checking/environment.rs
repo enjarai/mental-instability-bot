@@ -112,6 +112,19 @@ impl Display for EnvironmentContext<'_> {
 }
 
 #[macro_export]
+macro_rules! truncate {
+    ($string:expr,$max_len:expr) => {{
+        let mut result = $string;
+        let length = result.len();
+        if length > $max_len {
+            result.truncate($max_len - 3);
+            result = format!("{result}...");
+        }
+        result
+    }};
+}
+
+#[macro_export]
 macro_rules! grab_all {
     ($log:expr,$($arg:expr),*) => {'a: {
         $(
@@ -125,19 +138,48 @@ macro_rules! grab_all {
 
 #[macro_export]
 macro_rules! grab {
-    ($log:expr,$($arg:expr),*) => {'a: {
+    ($log:expr,$max_len:expr,$($arg:expr),*) => {'a: {
         $(
             if let Some(cap) = Regex::new($arg).expect("Incorrect regex").captures($log) {
-                break 'a Some(cap.get(1).map(|m| m.as_str().to_string()));
+                break 'a Some(cap.get(1).map(|m| truncate!(m.as_str().to_string(), $max_len)));
             }
         )*
         None
     }};
 }
 
+#[macro_export]
+macro_rules! peek {
+    ($log:expr,$($arg:expr),*) => {'a: {
+        $(
+            if Regex::new($arg).expect("Incorrect regex").is_match($log) {
+                break 'a true;
+            }
+        )*
+        false
+    }};
+}
+
+#[macro_export]
+macro_rules! expect {
+    ($captures:expr,$index:expr,$max_len:expr) => {{
+        truncate!(
+            $captures
+                .get($index)
+                .expect("Regex err")
+                .as_str()
+                .to_string(),
+            $max_len
+        )
+    }};
+}
+
+//
+
 pub fn read_mc_version(log: &str) -> Option<String> {
     grab!(
         log,
+        32,
         r"Loading Minecraft ([^\s]+)",
         r"minecraft server version ([^\s]+)",
         r"Minecraft Version: ([^\s]+)"
@@ -146,13 +188,13 @@ pub fn read_mc_version(log: &str) -> Option<String> {
 }
 
 pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> EnvironmentContext<'a> {
-    let launcher = if let Some(_) = grab!(log, r"Prism Launcher version:") {
+    let launcher = if peek!(log, r"Prism Launcher version:") {
         Some(Launcher::Prism)
-    } else if let Some(_) = grab!(log, r"PolyMC version:") {
+    } else if peek!(log, r"PolyMC version:") {
         Some(Launcher::PolyMC)
-    } else if let Some(_) = grab!(log, r"MultiMC version:") {
+    } else if peek!(log, r"MultiMC version:") {
         Some(Launcher::MultiMC)
-    } else if let Some(_) = grab!(log, r"[\\/]com\.modrinth\.theseus[\\/]") {
+    } else if peek!(log, r"[\\/]com\.modrinth\.theseus[\\/]") {
         Some(Launcher::Theseus)
     } else {
         None
@@ -162,18 +204,19 @@ pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> Envi
 
     if let Some(fabric_version) = grab!(
         log,
+        32,
         r"Loading Minecraft [^\s]+ with Fabric Loader ([^\s]+)",
         r"fabricloader: Fabric Loader ([^\s]+)",
         r"Is Modded: Definitely; [^\s]+ brand changed to 'fabric'"
     ) {
         loader = Some(ModLoader::Fabric(fabric_version));
-    } else if let Some(_) = grab!(
+    } else if peek!(
         log,
         r"ne\.mi\.fm\.lo",
         r"Is Modded: Definitely; [^\s]+ brand changed to 'forge'"
     ) {
         loader = Some(ModLoader::Forge);
-    } else if let Some(_) = grab!(
+    } else if peek!(
         log,
         r"net\.neoforged\.fml\.loading",
         r"Is Modded: Definitely; [^\s]+ brand changed to 'neoforge'"
@@ -181,6 +224,7 @@ pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> Envi
         loader = Some(ModLoader::NeoForge);
     } else if let Some(quilt_version) = grab!(
         log,
+        32,
         r"Loading Minecraft [^\s]+ with Quilt Loader ([^\s]+)",
         r"Is Modded: Definitely; [^\s]+ brand changed to 'quilt'"
     ) {
@@ -270,7 +314,10 @@ pub fn get_environment_info<'a>(log: &'a str, map_status: &'a MapStatus) -> Envi
             "<:restartdetector:1172685600000847922> Restart Detector",
         ),
         ScanMod("trickster", "<:trickster:1254515857640394876> Trickster"),
-        ScanMod("headpats", "<:headpats:1282096343006838825> Headpat a Friend!"),
+        ScanMod(
+            "headpats",
+            "<:headpats:1282096343006838825> Headpat a Friend!",
+        ),
         ScanMod("cicada", "<:cicada:1246197518807863367> CICADA"),
         ScanMod(
             "elytratrims",

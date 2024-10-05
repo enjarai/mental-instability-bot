@@ -1,4 +1,4 @@
-use crate::{grab, grab_all};
+use crate::{constants::MODID_SIZE, expect, grab, grab_all, peek, truncate};
 
 use super::environment::{EnvironmentContext, Launcher, ModLoader};
 use regex::Regex;
@@ -72,8 +72,8 @@ pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<Che
         log,
         r"---- Minecraft Crash Report ----(?:\r\n|\r|\n)// .+(?:\r\n|\r|\n)(?:\r\n|\r|\n)Time: .+(?:\r\n|\r|\n)Description: (.+)(?:\r\n|\r|\n)(?:\r\n|\r|\n)(.+)(?:\r\n|\r|\n)"
     ) {
-        let description = captures.get(1).expect("Regex err").as_str();
-        let error = captures.get(2).expect("Regex err 2").as_str();
+        let description = expect!(captures, 1, 256);
+        let error = expect!(captures, 2, 512);
         return Some(CheckReport {
             title: "Crash report analysis".to_string(),
             description: format!("Context: `{description}`\n```\n{error}\n```"),
@@ -83,6 +83,7 @@ pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<Che
 
     if let Some(Some(error)) = grab!(
         log,
+        512,
         r"Minecraft has crashed!(?:\r\n|\r|\n)(.+)(?:\r\n|\r|\n)",
         r"Unreported exception thrown!(?:\r\n|\r|\n)(.+)(?:\r\n|\r|\n)"
     ) {
@@ -93,7 +94,7 @@ pub fn crash_report_analysis(log: &str, _ctx: &EnvironmentContext) -> Option<Che
         });
     }
 
-    if grab!(log, r"This crash report has been saved to:").is_some() {
+    if grab!(log, 512, r"This crash report has been saved to:").is_some() {
         return Some(CheckReport {
             title: "Crash detected".to_string(),
             description: "No details could be determined automatically.".to_string(),
@@ -110,8 +111,8 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
         r"Mod '(.+)' \(\S+\) \S+ requires version \S+ or later of (.+), which is missing!",
         r"Mod '(.+)' \(\S+\) \S+ requires any version of (.+), which is missing!"
     ) {
-        let dependent = captures.get(1).expect("Regex err").as_str();
-        let dependency = captures.get(2).expect("Regex err 2").as_str();
+        let dependent = expect!(captures, 1, MODID_SIZE);
+        let dependency = expect!(captures, 2, MODID_SIZE);
         return Some(CheckReport {
             title: "Missing dependency".to_string(),
             description: format!(
@@ -126,9 +127,9 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
         log,
         r"Mod '(.+)' \(\S+\) \S+ is incompatible with .+ mod '(.+)' \(\S+\), but a matching version is present: (\S+)!"
     ) {
-        let mod_declared = captures.get(1).expect("Regex err").as_str();
-        let mod_implicated = captures.get(2).expect("Regex err 2").as_str();
-        let implicated_version = captures.get(3).expect("Regex err 3").as_str();
+        let mod_declared = expect!(captures, 1, MODID_SIZE);
+        let mod_implicated = expect!(captures, 2, MODID_SIZE);
+        let implicated_version = expect!(captures, 3, 64);
         return Some(CheckReport {
             title: "Explicit incompatibility".to_string(),
             description: format!(
@@ -142,7 +143,7 @@ pub fn dependency_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckR
 }
 
 pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if grab!(log, r"java\.lang\.Error: Watchdog").is_some() {
+    if peek!(log, r"java\.lang\.Error: Watchdog") {
         return Some(CheckReport {
             title: "Watchdog crash".to_string(),
             description: "The server watchdog has killed the game. This usually happens when a tick takes way longer than its supposed to, which may be a result of extreme lag.".to_string(),
@@ -150,7 +151,7 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
         });
     }
 
-    if grab!(log, r"java\.lang\.OutOfMemoryError:").is_some() {
+    if peek!(log, r"java\.lang\.OutOfMemoryError:") {
         return Some(CheckReport {
             title: "Out of memory".to_string(),
             description: "The game crashed because it ran out of memory. Consider allocating extra memory to the game or removing big content mods to save on memory usage.".to_string(),
@@ -160,6 +161,7 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
 
     if let Some(Some(mod_id)) = grab!(
         log,
+        64,
         r"RuntimeException: Error creating Mixin config \S+\.json for mod (\S+)"
     ) {
         return Some(CheckReport {
@@ -174,8 +176,8 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
         r"InvalidInjectionException: Critical injection failure: @Inject annotation on \S+ could not find any targets matching '.+' in \S+\. Using refmap \S+ \[PREINJECT Applicator Phase \-> \S+:(\w+) from mod (\w+)",
         r"InvalidAccessorException: No candidates were found matching \S+ in \S+ for \S+:(\w+) from mod (\w+)"
     ) {
-        let mixin = captures.get(1).expect("Regex err").as_str();
-        let mod_id = captures.get(2).expect("Regex err 2").as_str();
+        let mixin = expect!(captures, 1, 128);
+        let mod_id = expect!(captures, 2, MODID_SIZE);
         return Some(CheckReport {
             title: "Mixin inject failed".to_string(),
             description: format!("Mixin `{mixin}` from mod `{mod_id}` has failed to apply. It is possible that `{mod_id}` is not compatible with this Minecraft version, consider double-checking its version."),
@@ -187,8 +189,8 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
         log,
         r"InvalidInjectionException: \S+ on \S+ with priority \w+ cannot inject into \S+ merged by (\S+)\.\w+\.\w+ with priority \w+ \[PREINJECT Applicator Phase \-> \S+\.json:\S+ from mod (\S+) \->"
     ) {
-        let mod1 = captures.get(1).expect("Regex err").as_str();
-        let mod2 = captures.get(2).expect("Regex err 2").as_str();
+        let mod1 = expect!(captures, 1, MODID_SIZE);
+        let mod2 = expect!(captures, 2, MODID_SIZE);
         return Some(CheckReport {
             title: "Mixin conflict".to_string(),
             description: format!("A mixin from the mod `{mod2}` collided with one from `{mod1}`, these mods may be incompatible."),
@@ -198,6 +200,7 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
 
     if let Some(Some(mod_id)) = grab!(
         log,
+        MODID_SIZE,
         r"MixinApplyError: Mixin \[\S+\.json:\S+ from mod (\S+)\] from phase \[\S+\] in config \[\S+\.json\] FAILED during \S+",
         r"InvalidInjectionException: .+ from mod ([\w\(\)-]+)\s?\->.+",
         r"Mixin apply for mod (\S+) failed \S+.json:\w+ from mod \S+ \-> \S+:"
@@ -211,6 +214,7 @@ pub fn crash_generic(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
 
     if let Some(Some(mod_id)) = grab!(
         log,
+        MODID_SIZE,
         r"RuntimeException: Could not execute entrypoint stage '\S+' due to errors, provided by '(\S+)'!"
     ) {
         return Some(CheckReport {
@@ -226,13 +230,9 @@ pub fn mixin_conflicts(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepo
     let regex_redirect = Regex::new(r"@Redirect conflict\. Skipping (?:#redirector:)?\S+\.json:\S+ from mod (\S+)\->@Redirect::\S+ with priority \w+, already redirected by \S+\.json:\S+ from mod (\S+)->@Redirect::\S+ with priority \w+").expect("Regex err");
     let conflicts = regex_redirect
         .captures_iter(log)
-        .map(|c| {
-            (
-                c.get(1).expect("Regex err").as_str(),
-                c.get(2).expect("Regex err 2").as_str(),
-            )
-        })
-        .collect::<HashSet<(&str, &str)>>();
+        .take(7)
+        .map(|c| (expect!(c, 1, MODID_SIZE), expect!(c, 2, MODID_SIZE)))
+        .collect::<HashSet<(String, String)>>();
     if !conflicts.is_empty() {
         let mut description = "Mixins from the mods below are conflicting, this may cause unintentional behaviour or broken features.\n".to_string();
         for ele in conflicts {
@@ -251,6 +251,7 @@ pub fn mixin_conflicts(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepo
 pub fn duck_fail(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(Some(package)) = grab!(
         log,
+        512,
         r"AbstractMethodError: Receiver class \S+ does not define or inherit an implementation of the resolved method '.+' of interface (\S+)\.\w+\."
     ) {
         return Some(CheckReport {
@@ -266,8 +267,9 @@ pub fn class_missing_generic(log: &str, _ctx: &EnvironmentContext) -> Option<Che
     let packages = Regex::new(r"java\.lang\.ClassNotFoundException: (\S+)\.\w+")
         .expect("Regex err")
         .captures_iter(log)
-        .map(|cap| cap.get(1).expect("Reger err").as_str())
-        .collect::<HashSet<&str>>();
+        .take(15)
+        .map(|cap| expect!(cap, 1, 64))
+        .collect::<HashSet<String>>();
     if !packages.is_empty() {
         let mut description = "Classes from the packages below failed to load, this may be an indicator of missing dependencies or outdated mods.\n".to_string();
         for ele in packages {
@@ -287,8 +289,9 @@ pub fn broken_modmenu(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepor
     let mods = Regex::new(r"Mod (\S+) provides a broken implementation of ModMenuApi")
         .expect("Regex err")
         .captures_iter(log)
-        .map(|cap| cap.get(1).expect("Reger err").as_str())
-        .collect::<HashSet<&str>>();
+        .take(15)
+        .map(|cap| expect!(cap, 1, MODID_SIZE))
+        .collect::<HashSet<String>>();
     if !mods.is_empty() {
         let mut description = "The mods below have broken config screen implementations. You may need to install an additional dependency such as [Cloth Config](https://modrinth.com/mod/cloth-config) or [YACL](https://modrinth.com/mod/yacl) to be able to change their settings.\n".to_string();
         for ele in mods {
@@ -307,6 +310,7 @@ pub fn broken_modmenu(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepor
 pub fn frozen_registry(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(Some(namespace)) = grab!(
         log,
+        MODID_SIZE,
         r"IllegalStateException: Registry is already frozen \(trying to add key ResourceKey\[[\w-]+:[\w-]+ \/ ([\w-]+):\S+\]\)"
     ) {
         return Some(CheckReport {
@@ -319,7 +323,7 @@ pub fn frozen_registry(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepo
 }
 
 pub fn failed_registry(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if grab!(log, r"Failed to load registries due to above errors").is_some() {
+    if peek!(log, r"Failed to load registries due to above errors") {
         return Some(CheckReport {
             title: "Critical registry failure".to_string(),
             description: "One or more registries experienced critical loading failures, this may be related to broken resource files.".to_string(),
@@ -357,8 +361,8 @@ pub fn java(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
         log,
         r"- Replace '.+' \(java\) ([0-9]+) with version ([0-9]+) or later\."
     ) {
-        let has = captures.get(1).expect("Regex err").as_str();
-        let need = captures.get(2).expect("Regex err 2").as_str();
+        let has = expect!(captures, 1, 16);
+        let need = expect!(captures, 2, 16);
         return Some(CheckReport {
             title: "Incorrect Java version".to_string(),
             description: format!(
@@ -391,12 +395,10 @@ pub fn java(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
 }
 
 pub fn jdk(log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if grab!(
+    if peek!(
         log,
         r"IllegalStateException: No compatible attachment provider is available"
-    )
-    .is_some()
-    {
+    ) {
         return Some(CheckReport {
             title: "JRE used instead of JDK".to_string(),
             description: if let Some(java) = ctx.discovered_mods.iter().find(|m| m.0 == "java") {
@@ -416,6 +418,7 @@ pub fn jdk(log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
 pub fn broken_cicada_config(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
     if let Some(Some(path)) = grab!(
         log,
+        512,
         r"\[cicada\] Failed to parse config file, backing up and overwriting with default config: (.+)"
     ) {
         return Some(CheckReport {
@@ -428,7 +431,7 @@ pub fn broken_cicada_config(log: &str, _ctx: &EnvironmentContext) -> Option<Chec
 }
 
 pub fn missing_field(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if grab!(log, r"java\.lang\.NoSuchFieldError").is_some() {
+    if peek!(log, r"java\.lang\.NoSuchFieldError") {
         return Some(CheckReport {
             title: "Field missing error".to_string(),
             description: "On the logical server some fields may be deleted by Fabric Loader when a mod defines them as client-only. Since this feature was broken before loader `0.15`, some mods may have implemented it incorrectly. See if there's an update for the mod in question, or try downgrading Fabric Loader.".to_string(),
@@ -439,10 +442,15 @@ pub fn missing_field(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport
 }
 
 pub fn datapacks_failed(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if grab!(log, r"Failed to load datapacks, can't proceed with server load\. You can either fix your datapacks or reset to vanilla").is_some() {
+    if peek!(
+        log,
+        r"Failed to load datapacks, can't proceed with server load\. You can either fix your datapacks or reset to vanilla"
+    ) {
         return Some(CheckReport {
             title: "Datapack loading failed".to_string(),
-            description: "The server couldn't load datapack resources, further investigation is required.".to_string(),
+            description:
+                "The server couldn't load datapack resources, further investigation is required."
+                    .to_string(),
             severity: Severity::High,
         });
     }
@@ -453,8 +461,9 @@ pub fn resource_files(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepor
     let ids = Regex::new(r"Failed to parse (\S+) from pack [\w:-]")
         .expect("Regex err")
         .captures_iter(log)
-        .map(|cap| cap.get(1).expect("Reger err").as_str())
-        .collect::<HashSet<&str>>();
+        .take(14)
+        .map(|cap| expect!(cap, 1, 64))
+        .collect::<HashSet<String>>();
     if !ids.is_empty() {
         let mut description = "The resource or datapack files below failed to load. The mods they originate from might be out of date.\n".to_string();
         for ele in ids {
@@ -471,7 +480,7 @@ pub fn resource_files(log: &str, _ctx: &EnvironmentContext) -> Option<CheckRepor
 }
 
 pub fn disk_full(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if grab!(log, r"IOException: No space left on device").is_some() {
+    if peek!(log, r"IOException: No space left on device") {
         return Some(CheckReport {
             title: "Full storage".to_string(),
             description: "The game cannot save certain data, your storage drive might be full."
@@ -510,12 +519,11 @@ pub fn optifabric(log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
         .iter()
         .find(|m| m.0 .0 == "optifabric")
         .is_some()
-        || grab!(
+        || peek!(
             log,
             r"Mod '.+' \(\S+\) \S+ is incompatible with any version of mod '.+' \(optifabric\)",
             r"me\.modmuss50\.optifabric"
         )
-        .is_some()
     {
         return Some(CheckReport {
             title: "OptiFabric detected".to_string(),
@@ -566,7 +574,7 @@ pub fn feather(_log: &str, ctx: &EnvironmentContext) -> Option<CheckReport> {
 // }
 
 pub fn mcreator(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if let Some(Some(mod_id)) = grab!(log, r"at net\.mcreator\.([\w-]+)\.") {
+    if let Some(Some(mod_id)) = grab!(log, MODID_SIZE, r"at net\.mcreator\.([\w-]+)\.") {
         return Some(CheckReport {
             title: "MCreator mod issue".to_string(),
             description: format!("The mod `{mod_id}` is being mentioned in an error message. This is a mod made using MCreator, a tool for easily making basic mods.\n\nMCreator is known to produce subpar code that might cause issues with other mods. Consider removing this mod to alleviate potential issues."),
@@ -577,12 +585,10 @@ pub fn mcreator(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
 }
 
 pub fn indium(log: &str, _ctx: &EnvironmentContext) -> Option<CheckReport> {
-    if grab!(
-            log,
-            r#"because the return value of "net\.fabricmc\.fabric\.api\.renderer\.v1\.RendererAccess\.getRenderer\(\)" is null"#
-        )
-        .is_some()
-    {
+    if peek!(
+        log,
+        r#"because the return value of "net\.fabricmc\.fabric\.api\.renderer\.v1\.RendererAccess\.getRenderer\(\)" is null"#
+    ) {
         return Some(CheckReport {
             title: "Missing Indium".to_string(),
             description: "A mod is trying to make use of Fabric Rendering API, which may be missing when rendering mods such as Sodium are loaded. If you use Sodium, install [Indium](https://modrinth.com/mod/indium) to resolve this.".to_string(),
