@@ -1,6 +1,5 @@
 #![feature(let_chains)]
 #![feature(async_fn_traits)]
-#![feature(async_closure)]
 
 mod commands;
 mod config;

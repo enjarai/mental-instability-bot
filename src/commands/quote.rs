@@ -4,7 +4,7 @@ use crate::get_config;
 
 use super::{Context, Error};
 use poise::CreateReply;
-use serenity::all::{Attachment, Message};
+use serenity::all::{Attachment, Mentionable, Message};
 use serenity::{
     all::ChannelId,
     builder::{CreateEmbed, CreateEmbedAuthor, CreateMessage},
@@ -64,7 +64,7 @@ async fn quote_internal(
             let mut builder = CreateMessage::new().embed(embed);
 
             if let Some(url) = message_url {
-                builder = builder.content(url);
+                builder = builder.content(format!("{url} | by {}", ctx.author().mention()));
             }
 
             let reply = match channel.send_message(ctx.http(), builder).await {
