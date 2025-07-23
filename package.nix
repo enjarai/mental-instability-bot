@@ -1,5 +1,4 @@
-# lib isn't necessary if no license is defined
-{ lib, makeRustPlatform, rust-bin, openssl, pkgconf }:
+{ makeRustPlatform, rust-bin, openssl, pkgconf }:
 
 (makeRustPlatform {
   cargo = rust-bin.nightly.latest.default;
@@ -29,7 +28,7 @@
 
   doCheck = false;
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/enjarai/mental-instability-bot";
     description = "The bot of the discord";
   };
