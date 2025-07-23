@@ -16,11 +16,11 @@
           overlays = [ (import rust-overlay) ];
         };
       in {
-        # devShells.default = import ./shell.nix { inherit pkgs; };
+        devShells.default = import ./shell.nix { inherit pkgs; };
         packages.default = pkgs.callPackage ./package.nix { };
       }
     ) // {
-      nixosModule = import ./module.nix { 
+      nixosModules.default = import ./module.nix {
         packages = self.packages;
       };
     };
