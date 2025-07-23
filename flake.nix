@@ -26,7 +26,7 @@
       }
     ) // {
       nixosModule = import ./module.nix { 
-        package = self.packages.${nixpkgs.stdenv.hostPlatform.system}.default;
+        packages = self.packages;
       };
     };
 }

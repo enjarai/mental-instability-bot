@@ -1,5 +1,5 @@
 {
-  package
+  packages
 }: (
   {
     lib,
@@ -35,7 +35,7 @@
     options.services.mental-instability-bot = {
       enable = mkEnableOption "Mental Instability Bot";
 
-      package = mkPackageOption pkgs "mental-instability-bot" { };
+      package = mkPackageOption packages "mental-instability-bot" { };
 
       config = mkOption {
         type = submodule {
