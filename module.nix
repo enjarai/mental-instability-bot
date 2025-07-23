@@ -35,7 +35,7 @@
     options.services.mental-instability-bot = {
       enable = mkEnableOption "Mental Instability Bot";
 
-      package = mkPackageOption packages "mental-instability-bot" { };
+      package = mkPackageOption packages.${pkgs.stdenv.hostPlatform.system} "default" { };
 
       config = mkOption {
         type = submodule {
