@@ -1,4 +1,6 @@
 /target
 .env
+.envrc
+.direnv/
 config.toml
 /result

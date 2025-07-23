@@ -16,8 +16,8 @@
           inherit system;
           overlays = [ (import rust-overlay) ];
         };
-        craneLib = (crane.mkLib pkgs).overrideToolchain 
-          (p: p.rust-bin.nightly.latest.default);
+        craneLib = (crane.mkLib pkgs).overrideToolchain (p:
+          p.rust-bin.nightly.latest.default);
       in {
         # devShells.default = import ./shell.nix { inherit pkgs; };
         packages.default = pkgs.callPackage ./package.nix {
@@ -25,7 +25,7 @@
         };
       }
     ) // {
-      nixosModule = import ./module.nix { 
+      nixosModules.default = import ./module.nix {
         packages = self.packages;
       };
     };
