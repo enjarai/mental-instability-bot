@@ -1,7 +1,5 @@
 use std::path::Path;
 
-use crate::get_config;
-
 use super::{Context, Error};
 use poise::CreateReply;
 use serenity::all::{Attachment, Mentionable, Message};
@@ -27,7 +25,13 @@ async fn quote_internal(
     attachments: Option<&Vec<Attachment>>,
     message_url: Option<&String>,
 ) -> Result<(), Error> {
-    match get_config!(ctx.serenity_context()).quotes_channel {
+    match ctx.serenity_context()
+            .data
+            .read()
+            .await
+            .get::<crate::ConfigData>()
+            .expect("No config?")
+            .quotes_channel {
         Some(id) => {
             let channel = ChannelId::new(id);
 

@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 #![feature(async_fn_traits)]
 
 mod commands;

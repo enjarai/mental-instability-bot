@@ -1,10 +1,9 @@
 use poise::CreateReply;
 use regex::Regex;
 
-use crate::{
-    commands::{Context, Error},
-    get_mappings_cache,
-};
+use crate::
+    commands::{Context, Error}
+;
 use std::fmt::Write;
 
 macro_rules! check {
@@ -23,7 +22,13 @@ macro_rules! check {
 )]
 pub(crate) async fn cache_status(ctx: Context<'_>) -> Result<(), Error> {
     // This is kinda stupid, but it stops that macro from breaking, so w/e
-    if let cache = get_mappings_cache!(ctx.serenity_context()) {
+    if let cache = ctx.serenity_context()
+        .data
+        .write()
+        .await
+        .get_mut::<crate::MappingsCacheKey>()
+        .expect("No mappings cache?") 
+    {
         let keys = cache.cached_keys();
         let mut output = format!(
             "Currently caching the mappings for {} Minecraft versions.",
@@ -50,7 +55,12 @@ pub(crate) async fn yarn(
     #[description = "The obfuscated class, method or field name"] name: String,
     #[description = "The relevant Minecraft version"] mc_version: String,
 ) -> Result<(), Error> {
-    if let Some(mappings) = get_mappings_cache!(ctx.serenity_context())
+    if let Some(mappings) = ctx.serenity_context()
+        .data
+        .write()
+        .await
+        .get_mut::<crate::MappingsCacheKey>()
+        .expect("No mappings cache?")
         .get_or_download(&mc_version)
         .await
         .map_err(|err| {
