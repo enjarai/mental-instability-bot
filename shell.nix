@@ -12,12 +12,6 @@ in pkgs.mkShell {
     pkgconf
   ]);
 
-  RUST_SRC_PATH = let
-      p = with pkgs; (makeRustPlatform {
-        cargo = rust-bin.nightly.latest.default;
-        rustc = rust-bin.nightly.latest.default;
-      }).rustLibSrc;
-    in p;
   RUST_BACKTRACE = 1;
   LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libs;
 }
