@@ -100,7 +100,7 @@
             Type = "simple";
             User = cfg.user;
             Group = cfg.group;
-            WorkingDirectory = cfg.configDir;
+            WorkingDirectory = configDir;
             ExecStart = "${cfg.package}/bin/mental-instability-bot";
             Restart = "always";
           };
