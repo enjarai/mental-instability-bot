@@ -9,6 +9,7 @@ mod macros;
 mod mappings;
 mod util;
 
+use std::env;
 use std::fs;
 
 use config::Config;
@@ -90,8 +91,9 @@ async fn main() {
         ..Default::default()
     };
 
+    let config_file = env::var("CONFIG_FILE").unwrap_or("config.toml".to_string());
     let config: Config =
-        toml::from_str(&fs::read_to_string("config.toml").expect("reading config"))
+        toml::from_str(&fs::read_to_string(&config_file).expect("reading config"))
             .expect("parsing config");
 
     let framework = poise::Framework::builder()

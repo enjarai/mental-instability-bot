@@ -29,7 +29,6 @@
 
     format = pkgs.formats.toml { };
     configFile = format.generate "mental-instability-bot-config" cfg.config;
-    configDir = pkgs.writeTextDir "config.toml" (builtins.readFile configFile);
   in
   {
     options.services.mental-instability-bot = {
@@ -95,12 +94,15 @@
             cfg.package
             configFile
           ];
+          environment = {
+            CONFIG_FILE = configFile;
+          };
 
           serviceConfig = {
             Type = "simple";
             User = cfg.user;
             Group = cfg.group;
-            WorkingDirectory = configDir;
+            WorkingDirectory = cfg.package;
             ExecStart = "${cfg.package}/bin/mental-instability-bot";
             Restart = "always";
           };

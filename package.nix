@@ -9,6 +9,11 @@
 
   src = ./.;
 
+  postInstall = ''
+    cp -r log_checks $out/log_checks
+    cp -r tags $out/tags
+  '';
+
   buildInputs = [
     openssl
   ];
