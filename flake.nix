@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/master";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
