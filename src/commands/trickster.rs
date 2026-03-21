@@ -10,7 +10,7 @@ pub async fn view_spell(
     #[description = "The Spell Export String"] spell: String,
 ) -> Result<(), Error> {
     let url_encoded_spell = encode(&spell);
-    let url = format!("{}/?spell={}", TRICKSTER_STUDIO_URL, url_encoded_spell);
+    let url = format!("[Click to view spell in browser]({}/?spell={})", TRICKSTER_STUDIO_URL, url_encoded_spell);
     ctx.say(url).await?;
     Ok(())
 }
