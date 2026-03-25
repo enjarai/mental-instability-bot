@@ -5,6 +5,7 @@ pub(crate) const MODRINTH_PROJECT_URL: &str = "https://modrinth.com/project";
 pub(crate) const PASTE_GG_API_BASE_URL: &str = "https://api.paste.gg/v1";
 pub(crate) const FABRIC_MAVEN_URL: &str = "https://maven.fabricmc.net";
 pub(crate) const PASTEBIN_URL: &str = "https://pastebin.com";
+pub(crate) const TRICKSTER_STUDIO_URL: &str = "https://trickster-studio.maplesyrum.me";
 
 pub(crate) const MAPPINGS_CACHE_LIMIT: usize = 5;
 pub(crate) const MAPPINGS_CACHE_PURGE_SIZE: usize = 3;
