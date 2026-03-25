@@ -11,6 +11,6 @@ pub async fn view_spell(
 ) -> Result<(), Error> {
     let url_encoded_spell = encode(&spell);
     let url = format!("[Click to view spell in browser]({}/?spell={})", TRICKSTER_STUDIO_URL, url_encoded_spell);
-    ctx.say(url).await?;
+    ctx.reply(url).await?;
     Ok(())
 }

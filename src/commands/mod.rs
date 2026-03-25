@@ -10,6 +10,7 @@ pub mod update_deps;
 pub mod yarn;
 pub mod shortcut;
 pub mod trickster;
+pub mod gay;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = poise::Context<'a, ConfigData, Error>;

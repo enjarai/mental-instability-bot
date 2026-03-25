@@ -79,6 +79,7 @@ async fn main() {
         commands::yarn::cache_status(),
         commands::shortcut::modrinth(),
         commands::trickster::view_spell(),
+        commands::gay::gay(),
     ];
     commands.append(&mut commands::tags::load_tag_commands());
 
